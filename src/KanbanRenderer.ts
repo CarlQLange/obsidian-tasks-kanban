@@ -9,7 +9,7 @@ import { getSettings } from '../vendor/obsidian-tasks/src/Config/Settings';
  * Extends MarkdownRenderChild to integrate with Obsidian's rendering pipeline
  * Supports drag & drop, auto-refresh, and multiple grouping strategies
  */
-export class SimpleKanbanRenderer extends MarkdownRenderChild {
+export class KanbanRenderer extends MarkdownRenderChild {
     private app: App;
     private tasksIntegration: TasksIntegration;
     private settings: TasksKanbanSettings;

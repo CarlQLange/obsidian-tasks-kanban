@@ -4,11 +4,11 @@ import {
 } from 'obsidian';
 
 import { TasksIntegration } from './integration/TasksIntegration';
-import { SimpleKanbanRenderer } from './SimpleKanbanRenderer';
+import { KanbanRenderer } from './KanbanRenderer';
 import { TasksKanbanSettings } from './TasksKanbanSettings';
 
 /**
- * Processes tasks-kanban code blocks and creates SimpleKanbanRenderer instances
+ * Processes tasks-kanban code blocks and creates KanbanRenderer instances
  * Entry point for markdown code block processing
  */
 export class KanbanQueryProcessor {
@@ -45,12 +45,12 @@ export class KanbanQueryProcessor {
         }
 
         this.app.workspace.onLayoutReady(() => {
-            this.addSimpleKanbanRenderer();
+            this.addKanbanRenderer();
         });
     }
 
-    private addSimpleKanbanRenderer() {
-        const kanbanRenderer = new SimpleKanbanRenderer(
+    private addKanbanRenderer() {
+        const kanbanRenderer = new KanbanRenderer(
             this.app,
             this.tasksIntegration,
             this.settings,
