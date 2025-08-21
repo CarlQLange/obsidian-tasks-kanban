@@ -105,8 +105,12 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                 return;
             }
             
-            // Render the kanban board with grouped tasks from query result
-            this.renderKanbanBoard(queryResult.groupedTasks);
+            // Render the kanban board - either with swim lanes or traditional columns
+            if (queryResult.isDualGrouping && queryResult.swimLanes) {
+                this.renderSwimLaneBoard(queryResult.swimLanes);
+            } else {
+                this.renderKanbanBoard(queryResult.groupedTasks);
+            }
             
         } catch (error) {
             console.error('Error rendering kanban board:', error);
@@ -216,6 +220,167 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         }
     }
 
+    /**
+     * Render kanban board with swim lanes for dual grouping
+     */
+    private renderSwimLaneBoard(swimLanes: { [swimLane: string]: { [column: string]: Task[] } }) {
+        // Clear container
+        this.containerEl.empty();
+        
+        // Create swim lane board container
+        const boardContainer = this.containerEl.createDiv('kanban-board kanban-swimlanes plugin-tasks-kanban-board');
+        
+        // Add refresh button
+        const refreshButton = boardContainer.createEl('button', {
+            cls: 'kanban-refresh-button',
+            text: '↻'
+        });
+        refreshButton.addEventListener('click', () => {
+            this.render();
+        });
+        
+        // Get sorted swim lane names
+        const swimLaneNames = Object.keys(swimLanes).sort();
+        
+        // Get ordered column names from first swim lane (all should have same columns)
+        const firstSwimLane = swimLanes[swimLaneNames[0]];
+        const columnOrder = firstSwimLane ? this.getColumnOrder(firstSwimLane, 'status') : [];
+        
+        // Render column headers
+        this.renderSwimLaneHeaders(boardContainer, columnOrder);
+        
+        // Render each swim lane
+        for (const swimLaneName of swimLaneNames) {
+            const swimLaneColumns = swimLanes[swimLaneName];
+            this.renderSwimLane(boardContainer, swimLaneName, swimLaneColumns, columnOrder);
+        }
+        
+        // Add task count
+        const totalTasks = Object.values(swimLanes).reduce((swimLane, columns) => 
+            swimLane + Object.values(columns).reduce((sum, tasks) => sum + tasks.length, 0), 0);
+        if (totalTasks > 0) {
+            const countDiv = this.containerEl.createDiv('plugin-tasks-kanban-count');
+            countDiv.textContent = `${totalTasks} task${totalTasks === 1 ? '' : 's'}`;
+        }
+    }
+    
+    /**
+     * Render the header row with column titles for swim lanes
+     */
+    private renderSwimLaneHeaders(boardContainer: HTMLElement, columnOrder: string[]) {
+        const headerRow = boardContainer.createDiv('swimlane-header-row');
+        
+        // Empty cell for swim lane name column
+        const swimLaneHeaderCell = headerRow.createDiv('swimlane-name-header');
+        swimLaneHeaderCell.textContent = 'Project';
+        
+        // Create header for each column
+        for (const columnName of columnOrder) {
+            const headerCell = headerRow.createDiv('swimlane-column-header');
+            headerCell.textContent = this.getColumnTitle(columnName);
+        }
+    }
+    
+    /**
+     * Render a single swim lane row
+     */
+    private renderSwimLane(boardContainer: HTMLElement, swimLaneName: string, columns: { [column: string]: Task[] }, columnOrder: string[]) {
+        const swimLaneRow = boardContainer.createDiv('swimlane-row');
+        
+        // Create swim lane name cell
+        const nameCell = swimLaneRow.createDiv('swimlane-name');
+        nameCell.textContent = swimLaneName;
+        
+        // Create column cells for this swim lane
+        for (const columnName of columnOrder) {
+            const tasks = columns[columnName] || [];
+            const columnCell = swimLaneRow.createDiv('swimlane-column');
+            
+            // Add task count to column only if above threshold
+            if (tasks.length > this.settings.taskCountThreshold) {
+                const countDiv = columnCell.createDiv('swimlane-task-count');
+                countDiv.textContent = `${tasks.length}`;
+            }
+            
+            // Create content container for tasks
+            const contentDiv = columnCell.createDiv('swimlane-column-content');
+            
+            // Set up drop zone for this swim lane column
+            this.setupSwimLaneDropZone(contentDiv, swimLaneName, columnName);
+            
+            // Render tasks in this column
+            for (const task of tasks) {
+                this.renderTaskCard(contentDiv, task);
+            }
+        }
+    }
+    
+    /**
+     * Set up drag & drop for swim lane columns
+     */
+    private setupSwimLaneDropZone(columnCell: HTMLElement, swimLaneName: string, targetColumn: string) {
+        columnCell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            columnCell.classList.add('drag-over');
+        });
+        
+        columnCell.addEventListener('dragleave', () => {
+            columnCell.classList.remove('drag-over');
+        });
+        
+        columnCell.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            columnCell.classList.remove('drag-over');
+            
+            // Get the dragged task data
+            const taskData = e.dataTransfer?.getData('text/plain');
+            if (taskData) {
+                try {
+                    const { taskId, currentColumn } = JSON.parse(taskData);
+                    
+                    // Only proceed if dropping on different column
+                    if (currentColumn === targetColumn) return;
+                    
+                    // Parse task ID to get location info
+                    const [taskPath, taskLineNumberStr, ...descParts] = taskId.split(':');
+                    const taskLineNumber = parseInt(taskLineNumberStr) || 0;
+                    const taskDescription = descParts.join(':');
+                    
+                    // Find the task to update
+                    const taskForUpdate = {
+                        description: taskDescription,
+                        taskLocation: {
+                            path: taskPath,
+                            lineNumber: taskLineNumber
+                        }
+                    };
+                    
+                    // Convert column name to status type for updating
+                    const targetStatusType = this.mapColumnToStatusType(targetColumn);
+                    if (targetStatusType) {
+                        // Prevent auto-refresh during update
+                        this.isUpdating = true;
+                        
+                        try {
+                            await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
+                            // Refresh after successful update
+                            this.debouncedRender(200);
+                        } catch (error) {
+                            console.error('Error updating task status:', error);
+                            this.debouncedRender(100);
+                        } finally {
+                            setTimeout(() => {
+                                this.isUpdating = false;
+                            }, 1000);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error handling drop in swim lane:', error);
+                }
+            }
+        });
+    }
+
     private renderColumn(boardContainer: HTMLElement, status: string, tasks: Task[]) {
         // Create column container
         const column = boardContainer.createDiv('kanban-column plugin-tasks-kanban-column');
@@ -224,8 +389,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         const header = column.createDiv('kanban-column-header plugin-tasks-kanban-column-header');
         header.textContent = this.getColumnTitle(status);
         
-        // Add task count to header
-        if (tasks.length > 0) {
+        // Add task count to header only if above threshold
+        if (tasks.length > this.settings.taskCountThreshold) {
             const countSpan = header.createSpan('kanban-task-count');
             countSpan.textContent = ` (${tasks.length})`;
         }

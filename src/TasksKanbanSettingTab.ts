@@ -240,5 +240,24 @@ export class TasksKanbanSettingTab extends PluginSettingTab {
                         .filter(s => s.length > 0);
                     await this.plugin.saveSettings();
                 }));
+
+        // Task Count Display Section
+        containerEl.createEl('h3', { text: 'Task Count Display' });
+        
+        containerEl.createEl('p', { 
+            text: 'Configure when task count badges are shown in kanban columns and swim lanes.'
+        });
+
+        new Setting(containerEl)
+            .setName('Task count threshold')
+            .setDesc('Only show task count badges when there are more than this number of tasks (0 = always show, empty columns never show)')
+            .addText(text => text
+                .setPlaceholder('5')
+                .setValue(String(this.plugin.settings.taskCountThreshold))
+                .onChange(async (value) => {
+                    const num = parseInt(value) || 0;
+                    this.plugin.settings.taskCountThreshold = Math.max(0, num);
+                    await this.plugin.saveSettings();
+                }));
     }
 }

@@ -34,6 +34,9 @@ export interface TasksKanbanSettings {
     
     // Status column ordering
     statusOrder: string[]; // Custom order for status columns (empty array uses Tasks plugin order)
+    
+    // Task count display threshold
+    taskCountThreshold: number; // Only show task counts when above this number (0 = always show)
 }
 
 /**
@@ -64,6 +67,7 @@ export const DEFAULT_SETTINGS: TasksKanbanSettings = {
         fallbackToPath: true,
     },
     statusOrder: ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'],
+    taskCountThreshold: 5,
 };
 
 /**
