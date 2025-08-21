@@ -1,5 +1,9 @@
 import { App, Plugin, TFile } from 'obsidian';
 
+/**
+ * Interface for the Obsidian Tasks plugin
+ * Provides access to the Tasks plugin API and task data
+ */
 export interface TasksPlugin extends Plugin {
 	apiV1: {
 		createTaskLineModal(): Promise<string>;
@@ -10,6 +14,10 @@ export interface TasksPlugin extends Plugin {
 	settings: Record<string, unknown>;
 }
 
+/**
+ * Task object interface matching the Tasks plugin Task model
+ * Contains all task properties needed for kanban rendering and manipulation
+ */
 export interface Task {
 	status: {
 		symbol: string;
@@ -33,6 +41,10 @@ export interface Task {
 	id: string;
 }
 
+/**
+ * Integration layer for communicating with the Obsidian Tasks plugin
+ * Handles task retrieval, status updates, and file operations
+ */
 export class TasksIntegration {
 	private app: App;
 	private tasksPlugin: TasksPlugin | null = null;
@@ -151,20 +163,20 @@ export class TasksIntegration {
 		}
 	}
 
+	/**
+	 * Updates a task's status by modifying the source file
+	 * Uses description-based search for reliable task identification
+	 */
 	async updateTaskStatus(task: Task, newStatus: string): Promise<void> {
 		if (!this.isTasksPluginAvailable()) {
 			throw new Error('Tasks plugin is not available');
 		}
 
 		try {
-			console.log('updateTaskStatus called:', { task: task.description, newStatus, taskId: task.id });
-			
 			const statusSymbol = this.getStatusSymbol(newStatus);
-			console.log('Status symbol for', newStatus, ':', statusSymbol);
 			
 			// Get the file containing the task
 			const file = this.app.vault.getAbstractFileByPath(task.taskLocation.path);
-			console.log('File found:', file ? file.path : 'Not found');
 			
 			if (!file || !(file instanceof TFile)) {
 				throw new Error(`File not found: ${task.taskLocation.path}`);
@@ -172,26 +184,16 @@ export class TasksIntegration {
 
 			// Read the file content
 			const content = await this.app.vault.read(file);
-			console.log('File content preview:', content.substring(0, 200) + (content.length > 200 ? '...' : ''));
-			
 			const lines = content.split('\n');
-			console.log('All lines in file:');
-			lines.forEach((line, index) => {
-				console.log(`Line ${index + 1}: "${line}"`);
-			});
 			
+			// Find the actual task line by searching for the task description
 			// Find the actual task line by searching for the task description
 			let actualLineIndex = -1;
 			const taskDescription = task.description;
-			
-			console.log('Looking for task description:', `"${taskDescription}"`);
-			
-			// Search for a line containing the task description
 			for (let i = 0; i < lines.length; i++) {
 				const line = lines[i];
 				if (line.includes(taskDescription) && line.match(/^\s*-\s*\[.*\]/)) {
 					actualLineIndex = i;
-					console.log('Found task on line:', i + 1, `"${line}"`);
 					break;
 				}
 			}
@@ -201,11 +203,9 @@ export class TasksIntegration {
 			}
 			
 			const originalLine = lines[actualLineIndex];
-			console.log('Original line:', `"${originalLine}"`);
 			
 			// Update the task status in the line
 			const updatedLine = this.updateTaskLineStatus(originalLine, statusSymbol);
-			console.log('Updated line:', `"${updatedLine}"`);
 			
 			if (updatedLine !== originalLine) {
 				// Update the line in the content
@@ -214,10 +214,6 @@ export class TasksIntegration {
 				
 				// Write back to the file
 				await this.app.vault.modify(file, updatedContent);
-				
-				console.log('Successfully updated task status:', task.description, 'to', newStatus);
-			} else {
-				console.log('No changes needed - line already has correct status');
 			}
 			
 		} catch (error) {
@@ -226,6 +222,9 @@ export class TasksIntegration {
 		}
 	}
 
+	/**
+	 * Updates the status symbol in a task line using regex replacement
+	 */
 	private updateTaskLineStatus(line: string, newStatusSymbol: string): string {
 		// Match task format: - [x] task description or - [ ] task description
 		const taskRegex = /^(\s*-\s*\[)[^\]]*(\]\s*.*)$/;
@@ -240,6 +239,9 @@ export class TasksIntegration {
 		return line;
 	}
 
+	/**
+	 * Maps status types to their markdown symbols
+	 */
 	private getStatusSymbol(statusType: string): string {
 		switch (statusType) {
 			case 'TODO':

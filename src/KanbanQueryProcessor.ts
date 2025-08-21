@@ -7,8 +7,8 @@ import { TasksIntegration } from './integration/TasksIntegration';
 import { SimpleKanbanRenderer } from './SimpleKanbanRenderer';
 
 /**
- * KanbanQueryProcessor handles the processing of tasks-kanban code blocks
- * using a simplified approach that works with the TasksIntegration API
+ * Processes tasks-kanban code blocks and creates SimpleKanbanRenderer instances
+ * Entry point for markdown code block processing
  */
 export class KanbanQueryProcessor {
     private app: App;
@@ -31,6 +31,9 @@ export class KanbanQueryProcessor {
         this.context = context;
     }
 
+    /**
+     * Main processing method called by Obsidian's markdown processor
+     */
     async process() {
         if (!this.tasksIntegration.isTasksPluginAvailable()) {
             this.element.createDiv().innerHTML = '<pre>Tasks plugin not available</pre>';

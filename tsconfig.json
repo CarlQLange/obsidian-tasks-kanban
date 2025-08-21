@@ -15,10 +15,6 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "paths": {
-      "@/*": ["src/*"],
-      "@vendor/*": ["vendor/*"]
-    },
     "lib": [
       "DOM",
       "ES5",
@@ -28,8 +24,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.svelte",
-    "src/global.d.ts",
     "main.ts"
   ],
   "exclude": [

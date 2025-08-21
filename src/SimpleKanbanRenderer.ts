@@ -1,11 +1,11 @@
-import { App, Component, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from 'obsidian';
+import { App, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from 'obsidian';
 import { TasksIntegration, type Task } from './integration/TasksIntegration';
 import { SimpleQueryParser } from './SimpleQueryParser';
 
 /**
- * SimpleKanbanRenderer provides a basic kanban board implementation
- * using only the TasksIntegration interface without depending on
- * the full Tasks plugin source code
+ * Renders inline kanban boards within markdown files
+ * Extends MarkdownRenderChild to integrate with Obsidian's rendering pipeline
+ * Supports drag & drop, auto-refresh, and multiple grouping strategies
  */
 export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private app: App;
@@ -37,6 +37,9 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         }
     }
 
+    /**
+     * Sets up file system event listeners for automatic board refresh
+     */
     private setupAutoRefresh() {
         // Listen for file changes to auto-refresh the kanban board
         this.registerEvent(
@@ -96,21 +99,23 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
             let groupKey = 'Other';
             
             switch (groupBy) {
-                case 'path':
+                case 'path': {
                     // Group by file path
                     const pathParts = task.taskLocation.path.split('/');
                     groupKey = pathParts[pathParts.length - 1] || 'Root';
                     break;
+                }
                     
                 case 'priority':
                     groupKey = task.priority || 'None';
                     break;
                     
-                case 'folder':
+                case 'folder': {
                     // Group by folder
                     const folderParts = task.taskLocation.path.split('/');
                     groupKey = folderParts.length > 1 ? folderParts[folderParts.length - 2] : 'Root';
                     break;
+                }
                     
                 default:
                     // Fallback to status grouping
@@ -177,6 +182,9 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         return availableColumns.sort();
     }
 
+    /**
+     * Renders the complete kanban board with columns and task cards
+     */
     private renderKanbanBoard(groupedTasks: { [status: string]: Task[] }) {
         // Clear container
         this.containerEl.empty();
@@ -313,24 +321,15 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private setupCardDragHandlers(card: HTMLElement, task: Task) {
         card.addEventListener('dragstart', (e) => {
             if (e.dataTransfer) {
-                // Debug the task object structure
-                console.log('Full task object:', task);
-                console.log('Task location:', task.taskLocation);
-                console.log('Task description:', task.description);
                 
                 // Store both the task ID and the current column (group) it's in
                 const currentColumn = this.getTaskColumn(task);
                 // Create a unique identifier using path + line number + description  
                 // Access the private properties from the actual task object
-                const taskPath = (task.taskLocation as any)._tasksFile?.path || task.taskLocation.path;
-                const taskLineNumber = (task.taskLocation as any)._lineNumber || task.taskLocation.lineNumber;
+                const taskLocationExt = task.taskLocation as Record<string, unknown>;
+                const taskPath = (taskLocationExt._tasksFile as { path?: string })?.path || task.taskLocation.path;
+                const taskLineNumber = (taskLocationExt._lineNumber as number) || task.taskLocation.lineNumber;
                 
-                console.log('Accessing task location properties:', {
-                    'taskLocation.path': task.taskLocation.path,
-                    'taskLocation._tasksFile?.path': (task.taskLocation as any)._tasksFile?.path,
-                    'taskLocation.lineNumber': task.taskLocation.lineNumber,
-                    'taskLocation._lineNumber': (task.taskLocation as any)._lineNumber
-                });
                 
                 const uniqueId = `${taskPath || 'unknown'}:${taskLineNumber || 0}:${task.description || 'no-desc'}`;
                 const dragData = {
@@ -342,7 +341,6 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                     taskLineNumber: taskLineNumber
                 };
                 
-                console.log('Drag started for task:', dragData);
                 
                 e.dataTransfer.setData('text/plain', JSON.stringify(dragData));
                 card.classList.add('dragging');
@@ -358,22 +356,27 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         const groupBy = this.queryParser.getGroupBy();
         
         switch (groupBy) {
-            case 'path':
+            case 'path': {
                 const pathParts = task.taskLocation.path.split('/');
                 return pathParts[pathParts.length - 1] || 'Root';
+            }
                 
             case 'priority':
                 return task.priority || 'None';
                 
-            case 'folder':
+            case 'folder': {
                 const folderParts = task.taskLocation.path.split('/');
                 return folderParts.length > 1 ? folderParts[folderParts.length - 2] : 'Root';
+            }
                 
             default: // status grouping
                 return task.status.type;
         }
     }
 
+    /**
+     * Configures drag & drop handlers for a column
+     */
     private setupDropZone(content: HTMLElement, targetColumn: string) {
         content.addEventListener('dragover', (e) => {
             e.preventDefault();
@@ -389,25 +392,20 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
             content.classList.remove('drag-over');
             
             const data = e.dataTransfer?.getData('text/plain');
-            console.log('Drop event received:', data);
             
             if (data) {
                 try {
                     const dragData = JSON.parse(data);
-                    console.log('Parsed drag data:', dragData);
                     
                     const { taskId, originalColumn, taskPath, taskLineNumber, taskDescription } = dragData;
                     
-                    console.log('Extracted values:', { taskId, originalColumn, targetColumn, taskPath, taskLineNumber, taskDescription });
                     
                     // Don't do anything if dropped on the same column
                     if (originalColumn === targetColumn) {
-                        console.log('Dropped on same column, ignoring');
                         return;
                     }
                     
                     if (!taskPath || !taskLineNumber) {
-                        console.error('Missing task location info:', { taskPath, taskLineNumber });
                         return;
                     }
                     
@@ -421,30 +419,21 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                         }
                     };
                     
-                    console.log('Task for update:', taskForUpdate);
                     
                     if (taskForUpdate) {
                         // Only handle status-based drag and drop for now
                         // Other grouping types (path, priority, folder) don't have meaningful drag operations
                         const groupBy = this.queryParser.getGroupBy();
                         
-                        console.log('Group by:', groupBy);
                         
                         if (!groupBy || groupBy === 'status') {
                             // Convert column name to status type for updating
                             const targetStatusType = this.mapColumnToStatusType(targetColumn);
-                            console.log('Target status type:', targetStatusType);
-                            
                             if (targetStatusType) {
-                                console.log('Updating task status...');
                                 await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
-                                console.log('Task status updated, refreshing board...');
                                 // Refresh the board
                                 setTimeout(() => this.render(), 500);
                             }
-                        } else {
-                            // For non-status grouping, show a message that drag-drop isn't supported
-                            console.log('Drag and drop is only supported when grouping by status');
                         }
                     }
                 } catch (error) {

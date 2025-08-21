@@ -1,8 +1,8 @@
 import { Task } from './integration/TasksIntegration';
 
 /**
- * SimpleQueryParser implements basic Tasks plugin query syntax parsing
- * for common filtering operations used with kanban boards
+ * Parses Tasks plugin query syntax for kanban filtering and grouping
+ * Supports common filters and grouping operations without full Tasks plugin dependency
  */
 export class SimpleQueryParser {
     private source: string;
@@ -14,7 +14,9 @@ export class SimpleQueryParser {
     }
 
     /**
-     * Apply filters from the query source to the task list
+     * Applies all query filters to a list of tasks
+     * @param tasks - Array of tasks to filter
+     * @returns Filtered task array
      */
     filterTasks(tasks: Task[]): Task[] {
         let filteredTasks = [...tasks];
@@ -193,7 +195,8 @@ export class SimpleQueryParser {
     }
 
     /**
-     * Extract grouping information from the query
+     * Extracts grouping field from query (e.g., 'status', 'path', 'priority')
+     * @returns Grouping field or null if not specified
      */
     getGroupBy(): string | null {
         for (const line of this.lines) {
@@ -207,7 +210,9 @@ export class SimpleQueryParser {
     }
 
     /**
-     * Check if query specifies a particular grouping
+     * Checks if the query groups by a specific field
+     * @param field - Field to check for grouping
+     * @returns True if query groups by the specified field
      */
     isGroupedBy(field: string): boolean {
         const groupBy = this.getGroupBy();
