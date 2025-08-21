@@ -1,4 +1,5 @@
 import { App, Plugin, TFile } from 'obsidian';
+import { getSettings } from '../../vendor/obsidian-tasks/src/Config/Settings';
 
 /**
  * Interface for the Obsidian Tasks plugin
@@ -290,19 +291,20 @@ export class TasksIntegration {
 	 */
 	private getStatusSymbol(statusType: string): string {
 		// Check if Tasks plugin has custom status mappings
-		if (this.tasksPlugin && this.tasksPlugin.settings) {
-			// @ts-ignore - accessing internal settings
-			const settings = this.tasksPlugin.settings as any;
+		try {
+			const settings = getSettings();
 			const coreStatuses = settings.statusSettings?.coreStatuses || [];
 			const customStatuses = settings.statusSettings?.customStatuses || [];
 			const allStatuses = [...coreStatuses, ...customStatuses];
 			
 			const matchingStatus = allStatuses.find((s: any) => 
-				(s.type || s.name) === statusType || s.symbol === statusType
+				s.type === statusType || s.name === statusType || s.symbol === statusType
 			);
 			if (matchingStatus) {
 				return matchingStatus.symbol;
 			}
+		} catch (error) {
+			console.error('Error getting Tasks plugin settings in getStatusSymbol:', error);
 		}
 		
 		// Fallback to default mapping

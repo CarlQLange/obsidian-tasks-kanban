@@ -2,6 +2,7 @@ import { App, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from 'o
 import { TasksIntegration, type Task } from './integration/TasksIntegration';
 import { TasksQueryProcessor } from './TasksQueryProcessor';
 import { TasksKanbanSettings, PRIORITY_DISPLAY } from './TasksKanbanSettings';
+import { getSettings } from '../vendor/obsidian-tasks/src/Config/Settings';
 
 /**
  * Renders inline kanban boards within markdown files
@@ -813,21 +814,23 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private mapColumnToStatusType(columnName: string): string | null {
-        // First try to get the exact status type from Tasks plugin
-        const tasksPlugin = this.tasksIntegration.getTasksPlugin();
-        if (tasksPlugin && tasksPlugin.settings) {
-            // @ts-ignore - accessing internal settings
-            const settings = tasksPlugin.settings as any;
+        // First try to get the exact status type from Tasks plugin settings
+        try {
+            const settings = getSettings();
             const coreStatuses = settings.statusSettings?.coreStatuses || [];
             const customStatuses = settings.statusSettings?.customStatuses || [];
             const allStatuses = [...coreStatuses, ...customStatuses];
             
             const matchingStatus = allStatuses.find((s: any) => 
-                (s.type || s.name) === columnName || s.symbol === columnName
+                s.name === columnName || s.type === columnName || s.symbol === columnName
             );
+            
             if (matchingStatus) {
+                // For drag & drop, we need to return the status type/name for updateTaskStatus to process
                 return matchingStatus.type || matchingStatus.name;
             }
+        } catch (error) {
+            console.error('Error getting Tasks plugin settings:', error);
         }
         
         // Fallback to default mapping
@@ -850,11 +853,9 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private getColumnTitle(status: string): string {
-        // First try to get the display name from Tasks plugin
-        const tasksPlugin = this.tasksIntegration.getTasksPlugin();
-        if (tasksPlugin && tasksPlugin.settings) {
-            // @ts-ignore - accessing internal settings
-            const settings = tasksPlugin.settings as any;
+        // First try to get the display name from Tasks plugin settings
+        try {
+            const settings = getSettings();
             const coreStatuses = settings.statusSettings?.coreStatuses || [];
             const customStatuses = settings.statusSettings?.customStatuses || [];
             const allStatuses = [...coreStatuses, ...customStatuses];
@@ -865,6 +866,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
             if (matchingStatus) {
                 return matchingStatus.name || matchingStatus.type || status;
             }
+        } catch (error) {
+            console.error('Error getting Tasks plugin settings for column title:', error);
         }
         
         // Fallback to default titles

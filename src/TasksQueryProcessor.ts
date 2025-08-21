@@ -51,7 +51,7 @@ export class TasksQueryProcessor {
             // Add default grouping if not specified in source
             let processedSource = source;
             if (!source.toLowerCase().includes('group by')) {
-                processedSource = source + '\ngroup by function task.status.typeGroupText';
+                processedSource = source + '\ngroup by function task.status.name';
             }
             
             // Create and execute the query
