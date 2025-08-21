@@ -1,6 +1,6 @@
 import { App, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from 'obsidian';
 import { TasksIntegration, type Task } from './integration/TasksIntegration';
-import { SimpleQueryParser } from './SimpleQueryParser';
+import { TasksQueryProcessor } from './TasksQueryProcessor';
 import { TasksKanbanSettings, PRIORITY_DISPLAY } from './TasksKanbanSettings';
 
 /**
@@ -13,7 +13,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private tasksIntegration: TasksIntegration;
     private settings: TasksKanbanSettings;
     private source: string;
-    private queryParser: SimpleQueryParser;
+    private queryProcessor: TasksQueryProcessor;
+    private context: MarkdownPostProcessorContext;
     private refreshTimeout: NodeJS.Timeout | null = null;
     private isUpdating = false;
 
@@ -30,7 +31,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         this.tasksIntegration = tasksIntegration;
         this.settings = settings;
         this.source = source;
-        this.queryParser = new SimpleQueryParser(source);
+        this.queryProcessor = new TasksQueryProcessor(app, tasksIntegration);
+        this.context = context;
     }
 
     async onload() {
@@ -91,73 +93,49 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
 
 
     private async render() {
-        // Get all tasks from the Tasks plugin
-        const allTasks = await this.tasksIntegration.getAllTasks();
-        
-        // Apply query filtering using the parser
-        const filteredTasks = this.queryParser.filterTasks(allTasks);
-        
-        // Group tasks based on query grouping or default to status
-        const groupedTasks = this.groupTasks(filteredTasks);
-        
-        // Render the kanban board
-        this.renderKanbanBoard(groupedTasks);
-    }
-
-    private groupTasks(tasks: Task[]): { [key: string]: Task[] } {
-        const groupBy = this.queryParser.getGroupBy();
-        
-        // Default to status grouping if none specified
-        if (!groupBy || groupBy === 'status') {
-            return this.tasksIntegration.groupTasksByStatus(tasks);
-        }
-        
-        // Handle other grouping types
-        const grouped: { [key: string]: Task[] } = {};
-        
-        for (const task of tasks) {
-            let groupKey = 'Other';
+        try {
+            // Get file path from context for placeholder resolution
+            const filePath = this.context.sourcePath;
             
-            switch (groupBy) {
-                case 'path': {
-                    // Group by file path
-                    const pathParts = task.taskLocation.path.split('/');
-                    groupKey = pathParts[pathParts.length - 1] || 'Root';
-                    break;
-                }
-                    
-                case 'priority':
-                    groupKey = task.priority || 'None';
-                    break;
-                    
-                case 'folder': {
-                    // Group by folder
-                    const folderParts = task.taskLocation.path.split('/');
-                    groupKey = folderParts.length > 1 ? folderParts[folderParts.length - 2] : 'Root';
-                    break;
-                }
-                    
-                default:
-                    // Fallback to status grouping
-                    return this.tasksIntegration.groupTasksByStatus(tasks);
+            // Execute query using the Tasks plugin Query system
+            const queryResult = await this.queryProcessor.executeQuery(this.source, filePath);
+            
+            if (queryResult.error) {
+                this.showError(`Query error: ${queryResult.error}`);
+                return;
             }
             
-            if (!grouped[groupKey]) {
-                grouped[groupKey] = [];
-            }
-            grouped[groupKey].push(task);
+            // Render the kanban board with grouped tasks from query result
+            this.renderKanbanBoard(queryResult.groupedTasks);
+            
+        } catch (error) {
+            console.error('Error rendering kanban board:', error);
+            this.showError(`Failed to render kanban board: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-        
-        return grouped;
     }
 
-    private getColumnOrder(groupedTasks: { [key: string]: Task[] }): string[] {
-        const groupBy = this.queryParser.getGroupBy();
+    private showError(message: string) {
+        this.containerEl.empty();
+        const errorDiv = this.containerEl.createDiv('kanban-error');
+        errorDiv.textContent = message;
+        errorDiv.style.color = 'var(--text-error)';
+        errorDiv.style.padding = '1rem';
+        errorDiv.style.border = '1px solid var(--background-modifier-border)';
+        errorDiv.style.borderRadius = 'var(--radius-s)';
+        errorDiv.style.background = 'var(--background-secondary)';
+    }
+
+
+
+    private getColumnOrder(groupedTasks: { [key: string]: Task[] }, groupBy: string = 'status'): string[] {
         const availableColumns = Object.keys(groupedTasks);
         
         if (!groupBy || groupBy === 'status') {
-            // For status grouping, use logical order
-            const statusOrder = ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
+            // Use custom status order from settings, or get all available statuses from Tasks plugin
+            const statusOrder = this.settings.statusOrder.length > 0 
+                ? this.settings.statusOrder 
+                : this.tasksIntegration.getStatusTypes();
+            
             const orderedColumns: string[] = [];
             
             // Add columns in preferred order if they exist
@@ -221,8 +199,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
             this.render();
         });
         
-        // Get column order based on grouping type
-        const columnOrder = this.getColumnOrder(groupedTasks);
+        // Get column order based on grouping type - default to status since query processor handles grouping
+        const columnOrder = this.getColumnOrder(groupedTasks, 'status');
         
         // Render each column
         for (const columnKey of columnOrder) {
@@ -586,25 +564,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private getTaskColumn(task: Task): string {
-        const groupBy = this.queryParser.getGroupBy();
-        
-        switch (groupBy) {
-            case 'path': {
-                const pathParts = task.taskLocation.path.split('/');
-                return pathParts[pathParts.length - 1] || 'Root';
-            }
-                
-            case 'priority':
-                return task.priority || 'None';
-                
-            case 'folder': {
-                const folderParts = task.taskLocation.path.split('/');
-                return folderParts.length > 1 ? folderParts[folderParts.length - 2] : 'Root';
-            }
-                
-            default: // status grouping
-                return task.status.type;
-        }
+        // Since query processor handles grouping, determine current column from task status
+        return task.status.type;
     }
 
     /**
@@ -656,30 +617,26 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                     if (taskForUpdate) {
                         // Only handle status-based drag and drop for now
                         // Other grouping types (path, priority, folder) don't have meaningful drag operations
-                        const groupBy = this.queryParser.getGroupBy();
-                        
-                        
-                        if (!groupBy || groupBy === 'status') {
-                            // Convert column name to status type for updating
-                            const targetStatusType = this.mapColumnToStatusType(targetColumn);
-                            if (targetStatusType) {
-                                // Prevent auto-refresh during this update
-                                this.isUpdating = true;
-                                
-                                try {
-                                    await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
-                                    // Do a clean refresh after successful update
-                                    this.debouncedRender(200);
-                                } catch (error) {
-                                    console.error('Error updating task status:', error);
-                                    // If update failed, still refresh to ensure consistent state
-                                    this.debouncedRender(100);
-                                } finally {
-                                    // Allow auto-refresh again after update is complete
-                                    setTimeout(() => {
-                                        this.isUpdating = false;
-                                    }, 1000);
-                                }
+                        // TasksQueryProcessor handles grouping internally, we assume status-based for drag & drop
+                        // Convert column name to status type for updating
+                        const targetStatusType = this.mapColumnToStatusType(targetColumn);
+                        if (targetStatusType) {
+                            // Prevent auto-refresh during this update
+                            this.isUpdating = true;
+                            
+                            try {
+                                await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
+                                // Do a clean refresh after successful update
+                                this.debouncedRender(200);
+                            } catch (error) {
+                                console.error('Error updating task status:', error);
+                                // If update failed, still refresh to ensure consistent state
+                                this.debouncedRender(100);
+                            } finally {
+                                // Allow auto-refresh again after update is complete
+                                setTimeout(() => {
+                                    this.isUpdating = false;
+                                }, 1000);
                             }
                         }
                     }
@@ -691,7 +648,24 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private mapColumnToStatusType(columnName: string): string | null {
-        // Map column display names back to status types
+        // First try to get the exact status type from Tasks plugin
+        const tasksPlugin = this.tasksIntegration.getTasksPlugin();
+        if (tasksPlugin && tasksPlugin.settings) {
+            // @ts-ignore - accessing internal settings
+            const settings = tasksPlugin.settings as any;
+            const coreStatuses = settings.statusSettings?.coreStatuses || [];
+            const customStatuses = settings.statusSettings?.customStatuses || [];
+            const allStatuses = [...coreStatuses, ...customStatuses];
+            
+            const matchingStatus = allStatuses.find((s: any) => 
+                (s.type || s.name) === columnName || s.symbol === columnName
+            );
+            if (matchingStatus) {
+                return matchingStatus.type || matchingStatus.name;
+            }
+        }
+        
+        // Fallback to default mapping
         switch (columnName) {
             case 'TODO':
             case 'To Do':
@@ -711,6 +685,24 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private getColumnTitle(status: string): string {
+        // First try to get the display name from Tasks plugin
+        const tasksPlugin = this.tasksIntegration.getTasksPlugin();
+        if (tasksPlugin && tasksPlugin.settings) {
+            // @ts-ignore - accessing internal settings
+            const settings = tasksPlugin.settings as any;
+            const coreStatuses = settings.statusSettings?.coreStatuses || [];
+            const customStatuses = settings.statusSettings?.customStatuses || [];
+            const allStatuses = [...coreStatuses, ...customStatuses];
+            
+            const matchingStatus = allStatuses.find((s: any) => 
+                (s.type || s.name) === status || s.symbol === status
+            );
+            if (matchingStatus) {
+                return matchingStatus.name || matchingStatus.type || status;
+            }
+        }
+        
+        // Fallback to default titles
         switch (status) {
             case 'TODO': return 'To Do';
             case 'IN_PROGRESS': return 'In Progress';

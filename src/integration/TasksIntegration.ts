@@ -88,6 +88,7 @@ export class TasksIntegration {
 		}
 	}
 
+
 	async createTask(): Promise<string> {
 		if (!this.isTasksPluginAvailable() || !this.tasksPlugin) {
 			throw new Error('Tasks plugin is not available');
@@ -113,37 +114,82 @@ export class TasksIntegration {
 	}
 
 	getStatusTypes(): string[] {
-		// Default status types that can be extended based on Tasks plugin configuration
+		// Get status types from Tasks plugin settings if available
+		if (this.tasksPlugin && this.tasksPlugin.settings) {
+			// @ts-ignore - accessing internal settings
+			const settings = this.tasksPlugin.settings as any;
+			const coreStatuses = settings.statusSettings?.coreStatuses || [];
+			const customStatuses = settings.statusSettings?.customStatuses || [];
+			const allStatuses = [...coreStatuses, ...customStatuses];
+			
+			if (allStatuses.length > 0) {
+				return allStatuses.map((status: any) => status.type || status.name || 'UNKNOWN');
+			}
+		}
+		
+		// Fallback to default status types
 		return ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
 	}
 
 	groupTasksByStatus(tasks: Task[]): { [status: string]: Task[] } {
 		const grouped: { [status: string]: Task[] } = {};
 		
-		// Initialize groups
-		this.getStatusTypes().forEach(status => {
+		// Get all available status types from Tasks plugin
+		const allStatusTypes = this.getAllAvailableStatusTypes();
+		
+		// Initialize groups for all status types
+		allStatusTypes.forEach(status => {
 			grouped[status] = [];
 		});
 
 		// Group tasks
 		tasks.forEach(task => {
-			const statusType = this.mapStatusToType(task.status.type || task.status.symbol);
-			if (grouped[statusType]) {
-				grouped[statusType].push(task);
-			} else {
-				// Handle unknown status types
-				if (!grouped['OTHER']) {
-					grouped['OTHER'] = [];
-				}
-				grouped['OTHER'].push(task);
+			const statusType = task.status.type || task.status.name || this.mapStatusToType(task.status.symbol);
+			if (!grouped[statusType]) {
+				grouped[statusType] = [];
 			}
+			grouped[statusType].push(task);
 		});
 
 		return grouped;
 	}
 
+	/**
+	 * Get all available status types including custom ones from Tasks plugin
+	 */
+	private getAllAvailableStatusTypes(): string[] {
+		if (this.tasksPlugin && this.tasksPlugin.settings) {
+			// @ts-ignore - accessing internal settings
+			const settings = this.tasksPlugin.settings as any;
+			const coreStatuses = settings.statusSettings?.coreStatuses || [];
+			const customStatuses = settings.statusSettings?.customStatuses || [];
+			const allStatuses = [...coreStatuses, ...customStatuses];
+			
+			if (allStatuses.length > 0) {
+				return allStatuses.map((status: any) => status.type || status.name || 'UNKNOWN');
+			}
+		}
+		
+		// Fallback to default status types
+		return ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
+	}
+
 	private mapStatusToType(status: string): string {
-		// Map Tasks plugin status symbols/types to our kanban columns
+		// Check if Tasks plugin has custom status mappings
+		if (this.tasksPlugin && this.tasksPlugin.settings) {
+			// @ts-ignore - accessing internal settings
+			const settings = this.tasksPlugin.settings as any;
+			const coreStatuses = settings.statusSettings?.coreStatuses || [];
+			const customStatuses = settings.statusSettings?.customStatuses || [];
+			const allStatuses = [...coreStatuses, ...customStatuses];
+			
+			const matchingStatus = allStatuses.find((s: any) => s.symbol === status);
+			if (matchingStatus) {
+				return matchingStatus.type || matchingStatus.name || status;
+			}
+		}
+		
+		// Fallback to default mapping
 		switch (status.toLowerCase()) {
 			case ' ':
 			case 'todo':
@@ -159,7 +205,7 @@ export class TasksIntegration {
 			case 'cancelled':
 				return 'CANCELLED';
 			default:
-				return 'TODO';
+				return status.toUpperCase();
 		}
 	}
 
@@ -243,6 +289,23 @@ export class TasksIntegration {
 	 * Maps status types to their markdown symbols
 	 */
 	private getStatusSymbol(statusType: string): string {
+		// Check if Tasks plugin has custom status mappings
+		if (this.tasksPlugin && this.tasksPlugin.settings) {
+			// @ts-ignore - accessing internal settings
+			const settings = this.tasksPlugin.settings as any;
+			const coreStatuses = settings.statusSettings?.coreStatuses || [];
+			const customStatuses = settings.statusSettings?.customStatuses || [];
+			const allStatuses = [...coreStatuses, ...customStatuses];
+			
+			const matchingStatus = allStatuses.find((s: any) => 
+				(s.type || s.name) === statusType || s.symbol === statusType
+			);
+			if (matchingStatus) {
+				return matchingStatus.symbol;
+			}
+		}
+		
+		// Fallback to default mapping
 		switch (statusType) {
 			case 'TODO':
 				return ' ';

@@ -219,5 +219,26 @@ export class TasksKanbanSettingTab extends PluginSettingTab {
                     this.plugin.settings.project.fallbackToPath = value;
                     await this.plugin.saveSettings();
                 }));
+
+        // Status Column Order Section
+        containerEl.createEl('h3', { text: 'Status Column Order' });
+        
+        containerEl.createEl('p', { 
+            text: 'Customize the order of status columns in kanban boards. Leave empty to use Tasks plugin default order.'
+        });
+
+        new Setting(containerEl)
+            .setName('Status column order')
+            .setDesc('Comma-separated list of status types (e.g., TODO,IN_PROGRESS,DONE,CANCELLED)')
+            .addText(text => text
+                .setPlaceholder('TODO,IN_PROGRESS,DONE,CANCELLED')
+                .setValue(this.plugin.settings.statusOrder.join(','))
+                .onChange(async (value) => {
+                    this.plugin.settings.statusOrder = value
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(s => s.length > 0);
+                    await this.plugin.saveSettings();
+                }));
     }
 }

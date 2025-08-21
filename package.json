@@ -11,19 +11,38 @@
 		"test": "jest --ci",
 		"test:dev": "jest --watch"
 	},
-	"keywords": ["obsidian", "obsidian-plugin", "tasks", "kanban", "task-management"],
+	"keywords": [
+		"obsidian",
+		"obsidian-plugin",
+		"tasks",
+		"kanban",
+		"task-management"
+	],
 	"author": "Tasks Kanban Team",
 	"license": "MIT",
 	"devDependencies": {
+		"@types/jest": "^29.0.0",
+		"@types/mustache": "^4.2.6",
 		"@types/node": "^16.11.6",
 		"@typescript-eslint/eslint-plugin": "5.29.0",
 		"@typescript-eslint/parser": "5.29.0",
 		"builtin-modules": "3.3.0",
 		"esbuild": "0.17.3",
+		"jest": "^29.0.0",
 		"obsidian": "latest",
 		"tslib": "2.4.0",
-		"typescript": "4.7.4",
-		"jest": "^29.0.0",
-		"@types/jest": "^29.0.0"
+		"typescript": "4.7.4"
+	},
+	"dependencies": {
+		"async-mutex": "^0.5.0",
+		"boon-js": "^2.0.5",
+		"chrono-node": "2.3.9",
+		"eventemitter2": "^6.4.9",
+		"flatpickr": "^4.6.13",
+		"i18next": "^21.10.0",
+		"moment": "^2.29.4",
+		"mustache": "^4.2.0",
+		"mustache-validator": "^0.2.0",
+		"rrule": "^2.8.1"
 	}
 }

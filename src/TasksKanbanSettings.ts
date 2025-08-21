@@ -31,6 +31,9 @@ export interface TasksKanbanSettings {
         pathSegment: number; // which path segment to use (0 = first folder, -1 = last folder, etc.)
         fallbackToPath: boolean; // if frontmatter fails, fall back to path segment
     };
+    
+    // Status column ordering
+    statusOrder: string[]; // Custom order for status columns (empty array uses Tasks plugin order)
 }
 
 /**
@@ -60,6 +63,7 @@ export const DEFAULT_SETTINGS: TasksKanbanSettings = {
         pathSegment: 0,
         fallbackToPath: true,
     },
+    statusOrder: ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'],
 };
 
 /**
