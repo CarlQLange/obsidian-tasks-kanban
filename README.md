@@ -4,6 +4,8 @@
 
 A kanban board plugin for Obsidian that extends the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks) to provide inline kanban views within markdown files.
 
+<img width="1155" height="744" alt="image" src="https://github.com/user-attachments/assets/323ffe4b-7940-4939-b8a9-39decb5c3fdb" />
+
 ## Features
 
 - **Inline Kanban Boards**: Render kanban boards directly in markdown using `tasks-kanban` code blocks
