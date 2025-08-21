@@ -12,6 +12,8 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private tasksIntegration: TasksIntegration;
     private source: string;
     private queryParser: SimpleQueryParser;
+    private refreshTimeout: NodeJS.Timeout | null = null;
+    private isUpdating = false;
 
     constructor(
         app: App,
@@ -44,10 +46,10 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         // Listen for file changes to auto-refresh the kanban board
         this.registerEvent(
             this.app.vault.on('modify', (file) => {
-                // Only refresh if a markdown file was modified
-                if (file instanceof TFile && file.extension === 'md') {
+                // Only refresh if a markdown file was modified and we're not currently updating
+                if (file instanceof TFile && file.extension === 'md' && !this.isUpdating) {
                     // Debounce the refresh to avoid too many updates
-                    setTimeout(() => this.render(), 200);
+                    this.debouncedRender(300);
                 }
             })
         );
@@ -56,7 +58,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         this.registerEvent(
             this.app.vault.on('rename', (file) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    setTimeout(() => this.render(), 200);
+                    this.debouncedRender(200);
                 }
             })
         );
@@ -64,11 +66,25 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         this.registerEvent(
             this.app.vault.on('delete', (file) => {
                 if (file instanceof TFile && file.extension === 'md') {
-                    setTimeout(() => this.render(), 200);
+                    this.debouncedRender(200);
                 }
             })
         );
     }
+
+    /**
+     * Debounced render to prevent multiple rapid refreshes
+     */
+    private debouncedRender(delay = 200) {
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+        }
+        this.refreshTimeout = setTimeout(() => {
+            this.render();
+            this.refreshTimeout = null;
+        }, delay);
+    }
+
 
     private async render() {
         // Get all tasks from the Tasks plugin
@@ -189,6 +205,15 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         // Clear container
         this.containerEl.empty();
         
+        // Add subtle refresh button
+        const refreshButton = this.containerEl.createEl('button', {
+            cls: 'kanban-refresh-button',
+            text: '↻'
+        });
+        refreshButton.addEventListener('click', () => {
+            this.render();
+        });
+        
         // Create kanban board container
         const boardContainer = this.containerEl.createDiv('kanban-board plugin-tasks-kanban-board');
         
@@ -238,7 +263,10 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private renderTaskCard(columnContent: HTMLElement, task: Task) {
         // Create card container
         const card = columnContent.createDiv('kanban-card plugin-tasks-kanban-card');
-        card.dataset.taskId = task.id;
+        // Use a more reliable task ID for DOM selection
+        const reliableTaskId = `${task.taskLocation.path}:${task.taskLocation.lineNumber}:${task.description.slice(0, 50)}`;
+        card.dataset.taskId = reliableTaskId;
+        
         
         // Make card draggable
         card.draggable = true;
@@ -309,11 +337,17 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         toggleButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
+                this.isUpdating = true;
                 await this.tasksIntegration.toggleTaskDone(task.originalMarkdown, task.taskLocation.path);
-                // Refresh the board after status change
-                setTimeout(() => this.render(), 100);
+                // Use debounced render to prevent conflicts with auto-refresh
+                this.debouncedRender(100);
             } catch (error) {
                 console.error('Error toggling task:', error);
+            } finally {
+                // Allow auto-refresh again after a short delay
+                setTimeout(() => {
+                    this.isUpdating = false;
+                }, 500);
             }
         });
     }
@@ -331,7 +365,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                 const taskLineNumber = (taskLocationExt._lineNumber as number) || task.taskLocation.lineNumber;
                 
                 
-                const uniqueId = `${taskPath || 'unknown'}:${taskLineNumber || 0}:${task.description || 'no-desc'}`;
+                const uniqueId = `${taskPath || 'unknown'}:${taskLineNumber || 0}:${task.description.slice(0, 50) || 'no-desc'}`;
                 const dragData = {
                     taskId: uniqueId,
                     originalColumn: currentColumn,
@@ -430,9 +464,23 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                             // Convert column name to status type for updating
                             const targetStatusType = this.mapColumnToStatusType(targetColumn);
                             if (targetStatusType) {
-                                await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
-                                // Refresh the board
-                                setTimeout(() => this.render(), 500);
+                                // Prevent auto-refresh during this update
+                                this.isUpdating = true;
+                                
+                                try {
+                                    await this.tasksIntegration.updateTaskStatus(taskForUpdate as Task, targetStatusType);
+                                    // Do a clean refresh after successful update
+                                    this.debouncedRender(200);
+                                } catch (error) {
+                                    console.error('Error updating task status:', error);
+                                    // If update failed, still refresh to ensure consistent state
+                                    this.debouncedRender(100);
+                                } finally {
+                                    // Allow auto-refresh again after update is complete
+                                    setTimeout(() => {
+                                        this.isUpdating = false;
+                                    }, 1000);
+                                }
                             }
                         }
                     }

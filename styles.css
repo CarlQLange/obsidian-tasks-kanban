@@ -10,6 +10,7 @@
     background: var(--background-secondary);
     border-radius: var(--radius-m);
     margin: 1rem 0;
+    position: relative;
 }
 
 .kanban-column {
@@ -216,6 +217,7 @@
 /* Animation for card movements */
 .kanban-card {
     animation: fadeIn 0.3s ease-in-out;
+    transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
 @keyframes fadeIn {
@@ -227,6 +229,25 @@
         opacity: 1;
         transform: translateY(0);
     }
+}
+
+/* Status-based card styling for better visual feedback */
+.kanban-card.status-todo {
+    border-left: 3px solid var(--text-muted);
+}
+
+.kanban-card.status-in-progress {
+    border-left: 3px solid var(--color-orange);
+}
+
+.kanban-card.status-done {
+    border-left: 3px solid var(--color-green);
+    opacity: 0.8;
+}
+
+.kanban-card.status-cancelled {
+    border-left: 3px solid var(--color-red);
+    opacity: 0.6;
 }
 
 /* Empty column placeholder */
@@ -269,4 +290,27 @@
     font-size: var(--font-size-sm);
     border-top: 1px solid var(--background-modifier-border);
     padding-top: 0.5rem;
+}
+
+/* Refresh button - small and subtle */
+.kanban-refresh-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background: transparent;
+    color: var(--text-muted);
+    border: none;
+    border-radius: var(--radius-xs);
+    padding: 0.25rem;
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+    z-index: 10;
+}
+
+.kanban-refresh-button:hover {
+    background: var(--background-modifier-hover);
+    color: var(--text-normal);
+    opacity: 1;
 }
