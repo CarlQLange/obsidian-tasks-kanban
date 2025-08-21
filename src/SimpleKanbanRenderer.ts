@@ -289,13 +289,6 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private renderTaskMetadata(cardContent: HTMLElement, task: Task) {
         const metadata = cardContent.createDiv('kanban-card-metadata');
         
-        // Add priority if set
-        if (task.priority && task.priority !== 'None') {
-            const priority = metadata.createSpan('kanban-card-priority');
-            priority.addClass(`priority-${task.priority.toLowerCase()}`);
-            priority.textContent = `${task.priority} Priority`;
-        }
-        
         // Add due date if set
         if (task.dueDate) {
             const dueDate = metadata.createSpan('kanban-card-due-date');
@@ -313,12 +306,10 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     }
 
     private renderTaskActions(cardContent: HTMLElement, task: Task) {
-        const actions = cardContent.createDiv('kanban-card-actions');
-        
-        // Add edit button
-        const editButton = actions.createEl('button', {
-            cls: 'kanban-card-action kanban-edit-button',
-            text: 'Edit'
+        // Add small edit emoji button
+        const editButton = cardContent.createEl('button', {
+            cls: 'kanban-card-edit',
+            text: '✏️'
         });
         editButton.addEventListener('click', async (e) => {
             e.stopPropagation();
@@ -326,28 +317,6 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
                 await this.tasksIntegration.editTask(task.originalMarkdown);
             } catch (error) {
                 console.error('Error editing task:', error);
-            }
-        });
-        
-        // Add toggle button
-        const toggleButton = actions.createEl('button', {
-            cls: 'kanban-card-action kanban-toggle-button',
-            text: task.status.symbol === 'x' ? 'Reopen' : 'Complete'
-        });
-        toggleButton.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            try {
-                this.isUpdating = true;
-                await this.tasksIntegration.toggleTaskDone(task.originalMarkdown, task.taskLocation.path);
-                // Use debounced render to prevent conflicts with auto-refresh
-                this.debouncedRender(100);
-            } catch (error) {
-                console.error('Error toggling task:', error);
-            } finally {
-                // Allow auto-refresh again after a short delay
-                setTimeout(() => {
-                    this.isUpdating = false;
-                }, 500);
             }
         });
     }
