@@ -688,11 +688,63 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         editButton.addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
-                await this.tasksIntegration.editTask(task.originalMarkdown);
+                // Get the edited task line from the Tasks plugin modal
+                const editedTaskLine = await this.tasksIntegration.editTask(task.originalMarkdown);
+                
+                // If the task was actually edited (not cancelled), save it to the file
+                if (editedTaskLine && editedTaskLine !== task.originalMarkdown) {
+                    await this.saveEditedTask(task, editedTaskLine);
+                    // Refresh the kanban board to show the changes
+                    this.debouncedRender(500);
+                }
             } catch (error) {
                 console.error('Error editing task:', error);
             }
         });
+    }
+
+    /**
+     * Save an edited task line back to the file
+     */
+    private async saveEditedTask(task: Task, editedTaskLine: string): Promise<void> {
+        try {
+            // Get the file containing the task
+            const file = this.app.vault.getAbstractFileByPath(task.taskLocation.path);
+            
+            if (!file || !(file instanceof TFile)) {
+                throw new Error(`File not found: ${task.taskLocation.path}`);
+            }
+
+            // Read the file content
+            const content = await this.app.vault.read(file);
+            const lines = content.split('\n');
+            
+            // Find the task line by searching for the original task description
+            let actualLineIndex = -1;
+            const taskDescription = task.description;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                if (line.includes(taskDescription) && line.match(/^\s*-\s*\[.*\]/)) {
+                    actualLineIndex = i;
+                    break;
+                }
+            }
+            
+            if (actualLineIndex === -1) {
+                throw new Error(`Could not find task "${taskDescription}" in file`);
+            }
+            
+            // Replace the line with the edited version
+            lines[actualLineIndex] = editedTaskLine;
+            
+            // Save the modified content back to the file
+            const newContent = lines.join('\n');
+            await this.app.vault.modify(file, newContent);
+            
+        } catch (error) {
+            console.error('Error saving edited task:', error);
+            throw error;
+        }
     }
 
     private setupCardDragHandlers(card: HTMLElement, task: Task) {
