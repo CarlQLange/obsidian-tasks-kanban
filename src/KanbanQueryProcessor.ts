@@ -5,6 +5,7 @@ import {
 
 import { TasksIntegration } from './integration/TasksIntegration';
 import { SimpleKanbanRenderer } from './SimpleKanbanRenderer';
+import { TasksKanbanSettings } from './TasksKanbanSettings';
 
 /**
  * Processes tasks-kanban code blocks and creates SimpleKanbanRenderer instances
@@ -13,6 +14,7 @@ import { SimpleKanbanRenderer } from './SimpleKanbanRenderer';
 export class KanbanQueryProcessor {
     private app: App;
     private tasksIntegration: TasksIntegration;
+    private settings: TasksKanbanSettings;
     private source: string;
     private element: HTMLElement;
     private context: MarkdownPostProcessorContext;
@@ -20,12 +22,14 @@ export class KanbanQueryProcessor {
     constructor(
         app: App, 
         tasksIntegration: TasksIntegration,
+        settings: TasksKanbanSettings,
         source: string, 
         element: HTMLElement, 
         context: MarkdownPostProcessorContext
     ) {
         this.app = app;
         this.tasksIntegration = tasksIntegration;
+        this.settings = settings;
         this.source = source;
         this.element = element;
         this.context = context;
@@ -49,6 +53,7 @@ export class KanbanQueryProcessor {
         const kanbanRenderer = new SimpleKanbanRenderer(
             this.app,
             this.tasksIntegration,
+            this.settings,
             this.source,
             this.element,
             this.context

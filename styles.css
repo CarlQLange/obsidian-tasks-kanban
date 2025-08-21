@@ -101,21 +101,50 @@
 .kanban-card-metadata {
     display: flex;
     flex-direction: column;
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+    padding-top: 0.375rem;
+    border-top: 1px solid var(--background-modifier-border-hover);
+}
+
+.kanban-card-metadata-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 0.25rem;
 }
 
 
-.kanban-card-due-date {
-    font-size: var(--font-size-xs);
+/* Date elements - consistent styling */
+.kanban-card-due-date,
+.kanban-card-created-date,
+.kanban-card-start-date,
+.kanban-card-scheduled-date,
+.kanban-card-done-date {
+    font-size: 0.7rem;
     color: var(--text-muted);
-    font-weight: var(--font-weight-medium);
+    font-weight: var(--font-weight-normal);
+    background: var(--background-modifier-hover);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-xs);
+    display: inline-block;
+    font-family: var(--font-monospace);
+}
+
+.kanban-card-due-date {
+    color: var(--color-orange);
+    background: color-mix(in srgb, var(--color-orange) 15%, var(--background-primary));
+}
+
+.kanban-card-done-date {
+    color: var(--color-green);
+    background: color-mix(in srgb, var(--color-green) 15%, var(--background-primary));
 }
 
 .kanban-card-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.25rem;
-    margin-top: 0.25rem;
 }
 
 .kanban-card-tag {
@@ -125,6 +154,58 @@
     padding: 0.125rem 0.375rem;
     border-radius: var(--radius-xs);
     border: 1px solid var(--background-modifier-border);
+}
+
+.kanban-card-tags-compact .kanban-card-tag {
+    padding: 0.0625rem 0.25rem;
+    font-size: 0.6rem;
+    margin: 0.0625rem;
+}
+
+/* Priority styling */
+.kanban-card-priority {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-bold);
+    display: inline-block;
+    margin-right: 0.25rem;
+}
+
+.kanban-card-priority-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    color: white;
+    font-size: 8px;
+    text-align: center;
+    line-height: 12px;
+}
+
+/* Path and project info */
+.kanban-card-path {
+    font-size: 0.65rem;
+    color: var(--text-faint);
+    font-family: var(--font-monospace);
+    background: var(--background-secondary);
+    padding: 0.125rem 0.25rem;
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--background-modifier-border);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.kanban-card-project {
+    font-size: 0.7rem;
+    color: var(--text-accent);
+    background: color-mix(in srgb, var(--text-accent) 15%, var(--background-primary));
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-xs);
+    font-weight: var(--font-weight-medium);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
 }
 
 .kanban-card-edit {

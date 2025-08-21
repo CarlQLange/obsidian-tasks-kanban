@@ -1,6 +1,7 @@
 import { App, MarkdownPostProcessorContext, MarkdownRenderChild, TFile } from 'obsidian';
 import { TasksIntegration, type Task } from './integration/TasksIntegration';
 import { SimpleQueryParser } from './SimpleQueryParser';
+import { TasksKanbanSettings, PRIORITY_DISPLAY } from './TasksKanbanSettings';
 
 /**
  * Renders inline kanban boards within markdown files
@@ -10,6 +11,7 @@ import { SimpleQueryParser } from './SimpleQueryParser';
 export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private app: App;
     private tasksIntegration: TasksIntegration;
+    private settings: TasksKanbanSettings;
     private source: string;
     private queryParser: SimpleQueryParser;
     private refreshTimeout: NodeJS.Timeout | null = null;
@@ -18,6 +20,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     constructor(
         app: App,
         tasksIntegration: TasksIntegration,
+        settings: TasksKanbanSettings,
         source: string,
         container: HTMLElement,
         context: MarkdownPostProcessorContext
@@ -25,6 +28,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         super(container);
         this.app = app;
         this.tasksIntegration = tasksIntegration;
+        this.settings = settings;
         this.source = source;
         this.queryParser = new SimpleQueryParser(source);
     }
@@ -277,7 +281,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         
         // Add task description
         const description = cardContent.createDiv('kanban-card-description');
-        description.textContent = task.description;
+        description.textContent = this.cleanTaskDescription(task.description);
         
         // Add metadata
         this.renderTaskMetadata(cardContent, task);
@@ -289,20 +293,246 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
     private renderTaskMetadata(cardContent: HTMLElement, task: Task) {
         const metadata = cardContent.createDiv('kanban-card-metadata');
         
-        // Add due date if set
-        if (task.dueDate) {
-            const dueDate = metadata.createSpan('kanban-card-due-date');
-            dueDate.textContent = `Due: ${task.dueDate.toDateString()}`;
+        // First row: Priority and dates
+        const topRow = metadata.createDiv('kanban-card-metadata-row');
+        
+        // Priority
+        if (this.settings.display.priority && task.priority) {
+            console.log('Task priority:', task.priority, typeof task.priority);
+            const priorityEl = topRow.createSpan('kanban-card-priority');
+            this.renderPriority(priorityEl, task.priority);
         }
         
-        // Add tags if present
-        if (task.tags && task.tags.length > 0) {
-            const tagsContainer = metadata.createDiv('kanban-card-tags');
+        // Due Date (most important)
+        if (this.settings.display.dueDate && task.dueDate) {
+            const dueDateEl = topRow.createSpan('kanban-card-due-date');
+            this.renderDate(dueDateEl, task.dueDate, 'Due');
+        }
+        
+        // Other dates in a second row if any are enabled
+        const hasOtherDates = (this.settings.display.createdDate && task.createdDate) ||
+                             (this.settings.display.startDate && task.startDate) ||
+                             (this.settings.display.scheduledDate && task.scheduledDate) ||
+                             (this.settings.display.doneDate && task.doneDate);
+        
+        if (hasOtherDates) {
+            const datesRow = metadata.createDiv('kanban-card-metadata-row');
+            
+            if (this.settings.display.createdDate && task.createdDate) {
+                const createdEl = datesRow.createSpan('kanban-card-created-date');
+                this.renderDate(createdEl, task.createdDate, 'Created');
+            }
+            
+            if (this.settings.display.startDate && task.startDate) {
+                const startEl = datesRow.createSpan('kanban-card-start-date');
+                this.renderDate(startEl, task.startDate, 'Start');
+            }
+            
+            if (this.settings.display.scheduledDate && task.scheduledDate) {
+                const scheduledEl = datesRow.createSpan('kanban-card-scheduled-date');
+                this.renderDate(scheduledEl, task.scheduledDate, 'Scheduled');
+            }
+            
+            if (this.settings.display.doneDate && task.doneDate) {
+                const doneEl = datesRow.createSpan('kanban-card-done-date');
+                this.renderDate(doneEl, task.doneDate, 'Done');
+            }
+        }
+        
+        // Third row: Project info and path
+        const hasLocationInfo = (this.settings.display.projectInfo && task.taskLocation.path) ||
+                               (this.settings.display.taskPath && task.taskLocation.path);
+        
+        if (hasLocationInfo) {
+            const locationRow = metadata.createDiv('kanban-card-metadata-row');
+            
+            if (this.settings.display.projectInfo && task.taskLocation.path) {
+                const projectEl = locationRow.createSpan('kanban-card-project');
+                // Set a placeholder while loading
+                projectEl.textContent = '📁 Loading...';
+                
+                // Load project info asynchronously
+                this.extractProjectInfo(task).then(project => {
+                    if (project) {
+                        projectEl.textContent = `📁 ${project}`;
+                    } else {
+                        projectEl.remove();
+                    }
+                }).catch(error => {
+                    console.warn('Error loading project info:', error);
+                    projectEl.remove();
+                });
+            }
+            
+            if (this.settings.display.taskPath && task.taskLocation.path) {
+                const pathEl = locationRow.createSpan('kanban-card-path');
+                pathEl.textContent = task.taskLocation.path;
+            }
+        }
+        
+        // Tags row
+        if (this.settings.display.tags && task.tags && task.tags.length > 0) {
+            const tagsRow = metadata.createDiv('kanban-card-metadata-row');
+            const tagsContainer = tagsRow.createDiv('kanban-card-tags');
+            if (this.settings.format.compactTags) {
+                tagsContainer.addClass('kanban-card-tags-compact');
+            }
             for (const tag of task.tags) {
                 const tagSpan = tagsContainer.createSpan('kanban-card-tag');
                 tagSpan.textContent = tag;
             }
         }
+    }
+    
+    private renderPriority(element: HTMLElement, priority: string) {
+        const priorityInfo = PRIORITY_DISPLAY[priority as keyof typeof PRIORITY_DISPLAY];
+        if (!priorityInfo) return;
+        
+        switch (this.settings.format.priorityStyle) {
+            case 'emoji':
+                if (priorityInfo.emoji) {
+                    element.textContent = priorityInfo.emoji;
+                }
+                break;
+            case 'text':
+                element.textContent = priorityInfo.text;
+                break;
+            case 'color':
+                element.style.backgroundColor = priorityInfo.color;
+                element.textContent = '●';
+                element.addClass('kanban-card-priority-color');
+                break;
+        }
+    }
+    
+    private renderDate(element: HTMLElement, date: Date | string, label: string) {
+        // Convert to Date object if it's a string
+        const dateObj = date instanceof Date ? date : new Date(date);
+        
+        // Check if date is valid
+        if (isNaN(dateObj.getTime())) {
+            console.warn('Invalid date:', date);
+            return;
+        }
+        
+        let dateString = '';
+        
+        switch (this.settings.format.dateFormat) {
+            case 'short':
+                dateString = dateObj.toLocaleDateString();
+                break;
+            case 'medium':
+                dateString = dateObj.toLocaleDateString(undefined, { 
+                    month: 'short', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+                break;
+            case 'long':
+                dateString = dateObj.toLocaleDateString(undefined, { 
+                    month: 'long', 
+                    day: 'numeric', 
+                    year: 'numeric' 
+                });
+                break;
+        }
+        
+        if (this.settings.format.showDateLabels) {
+            element.textContent = `${label}: ${dateString}`;
+        } else {
+            element.textContent = dateString;
+        }
+    }
+    
+    private async extractProjectInfo(task: Task): Promise<string | null> {
+        const projectSettings = this.settings.project;
+        
+        // Try frontmatter first if configured
+        if (projectSettings.source === 'frontmatter' || projectSettings.source === 'both') {
+            const frontmatterProject = await this.getProjectFromFrontmatter(task.taskLocation.path, projectSettings.frontmatterKey);
+            if (frontmatterProject) {
+                return frontmatterProject;
+            }
+            
+            // If 'frontmatter' only mode and no frontmatter found, return null
+            if (projectSettings.source === 'frontmatter') {
+                return null;
+            }
+        }
+        
+        // Use path-based extraction
+        if (projectSettings.source === 'path' || (projectSettings.source === 'both' && projectSettings.fallbackToPath)) {
+            return this.getProjectFromPath(task.taskLocation.path, projectSettings.pathSegment);
+        }
+        
+        return null;
+    }
+    
+    private async getProjectFromFrontmatter(filePath: string, frontmatterKey: string): Promise<string | null> {
+        try {
+            const file = this.app.vault.getAbstractFileByPath(filePath);
+            if (!file || !(file instanceof TFile)) {
+                return null;
+            }
+            
+            const fileCache = this.app.metadataCache.getFileCache(file);
+            const frontmatter = fileCache?.frontmatter;
+            
+            if (frontmatter && frontmatter[frontmatterKey]) {
+                return String(frontmatter[frontmatterKey]);
+            }
+        } catch (error) {
+            console.warn('Error reading frontmatter for project:', error);
+        }
+        
+        return null;
+    }
+    
+    private getProjectFromPath(path: string, segmentIndex: number): string | null {
+        const pathParts = path.split('/').filter(part => part.length > 0);
+        
+        if (pathParts.length === 0) {
+            return null;
+        }
+        
+        // Handle negative indices (from end)
+        if (segmentIndex < 0) {
+            const adjustedIndex = pathParts.length + segmentIndex;
+            if (adjustedIndex >= 0 && adjustedIndex < pathParts.length) {
+                return pathParts[adjustedIndex];
+            }
+        } else {
+            // Handle positive indices (from start)
+            if (segmentIndex < pathParts.length) {
+                return pathParts[segmentIndex];
+            }
+        }
+        
+        return null;
+    }
+    
+    private cleanTaskDescription(description: string): string {
+        let cleaned = description;
+        
+        // Remove hashtags (tags) - match #word but not in the middle of words
+        cleaned = cleaned.replace(/(?:^|\s)(#\w+)(?=\s|$)/g, ' ').trim();
+        
+        // Remove priority indicators - ⏫ 🔼 🔽 ⏬
+        cleaned = cleaned.replace(/[⏫🔼🔽⏬]/g, '').trim();
+        
+        // Remove date patterns like 📅 2023-12-31, 📆 2023-12-31, ⏰ 2023-12-31
+        cleaned = cleaned.replace(/[📅📆⏰⏳🗓]\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        
+        // Remove start date patterns like 🛫 2023-12-31
+        cleaned = cleaned.replace(/🛫\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        
+        // Remove done date patterns like ✅ 2023-12-31
+        cleaned = cleaned.replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        
+        // Remove multiple consecutive spaces
+        cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();
+        
+        return cleaned;
     }
 
     private renderTaskActions(cardContent: HTMLElement, task: Task) {

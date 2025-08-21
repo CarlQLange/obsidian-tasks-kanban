@@ -27,12 +27,12 @@ export interface Task {
 	description: string;
 	priority: string;
 	tags: string[];
-	createdDate: Date | null;
-	startDate: Date | null;
-	scheduledDate: Date | null;
-	dueDate: Date | null;
-	doneDate: Date | null;
-	cancelledDate: Date | null;
+	createdDate: Date | string | null;
+	startDate: Date | string | null;
+	scheduledDate: Date | string | null;
+	dueDate: Date | string | null;
+	doneDate: Date | string | null;
+	cancelledDate: Date | string | null;
 	taskLocation: {
 		path: string;
 		lineNumber: number;

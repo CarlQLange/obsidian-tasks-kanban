@@ -82,7 +82,23 @@ tasks-kanban code block → KanbanQueryProcessor → SimpleKanbanRenderer → Si
 Drag & Drop → updateTaskStatus() → File Search by Description → Regex Replace → File Write → Auto-refresh
 ```
 
-## Development Commands
+## Development Workflow
+
+### Feature Branch Strategy
+Now that we have a solid POC, **all new work should be done on feature branches** rather than directly on master.
+
+**Branch Naming Convention:**
+- `feature/short-description` for new features
+- `fix/short-description` for bug fixes  
+- `refactor/short-description` for code improvements
+
+**Workflow:**
+1. Create feature branch: `git checkout -b feature/new-functionality`
+2. Make changes and commit regularly
+3. Test thoroughly before merging
+4. Create PR/merge back to master when complete
+
+### Development Commands
 
 Based on `package.json:6-12`:
 
