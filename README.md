@@ -1,16 +1,17 @@
 # Obsidian Tasks Kanban
 
+> **⚠️ Disclaimer**: This was totally vibe coded. I'd never written an Obsidian plugin before and I still haven't. I disavow any responsibility for this plugin - it works for me, if it works for you that's great but it's fully AI-generated so be careful with your beloved tasks.
+
 A kanban board plugin for Obsidian that extends the [Tasks plugin](https://github.com/obsidian-tasks-group/obsidian-tasks) to provide inline kanban views within markdown files.
 
 ## Features
 
 - **Inline Kanban Boards**: Render kanban boards directly in markdown using `tasks-kanban` code blocks
-- **Tasks Plugin Integration**: Fully integrates with the Obsidian Tasks plugin for task management
 - **Drag & Drop**: Move tasks between columns with automatic file updates
-- **Query Syntax**: Supports Tasks plugin query syntax for filtering and grouping
-- **Auto-refresh**: Automatically updates when tasks are modified
-- **Multiple Grouping**: Group by status, path, priority, or folder
-- **Responsive Design**: Works on desktop and mobile devices
+- **Swim Lanes**: Support for dual grouping (e.g., group by project, then by status)
+- **Custom Statuses**: Full support for Tasks plugin custom statuses
+- **Query Syntax**: Supports Tasks plugin query syntax including placeholders
+- **Task Editing**: Click-to-edit tasks with modal interface
 
 ## Requirements
 
@@ -18,27 +19,45 @@ This plugin requires the [Obsidian Tasks plugin](https://github.com/obsidian-tas
 
 ## Usage
 
+### Basic Kanban Board
+
 Create a kanban board by adding a `tasks-kanban` code block to any markdown file:
 
 ````markdown
 ```tasks-kanban
 not done
-group by status
+group by function task.status.typeGroupText
 ```
 ````
 
-### Advanced Usage
+**Note**: The preferred grouping method is `group by function task.status.typeGroupText` which properly handles all status types including custom statuses.
 
-Filter by project path:
+### Swim Lanes (Dual Grouping)
+
+Create swim lanes by using two group statements - the first creates horizontal swim lanes, the second creates columns within each swim lane:
+
 ````markdown
 ```tasks-kanban
-path includes Personal
-not done
-group by status
+path includes {{query.file.path}}
+group by function task.file.property('project')
+group by function task.status.typeGroupText
 ```
 ````
 
-Group by priority:
+This creates swim lanes by project with status columns in each lane.
+
+### More Examples
+
+**Filter by current file path:**
+````markdown
+```tasks-kanban
+path includes {{query.file.path}}
+not done
+group by function task.status.typeGroupText
+```
+````
+
+**Group by priority:**
 ````markdown
 ```tasks-kanban
 not done
@@ -47,17 +66,35 @@ group by priority
 ```
 ````
 
+**Custom project swim lanes:**
+````markdown
+```tasks-kanban
+not done
+group by function task.file.property('project')
+group by status
+```
+````
+
 ## Supported Query Syntax
 
-The plugin supports Tasks plugin query syntax for filtering:
+The plugin supports the **complete Tasks plugin query syntax** including:
 
 - `not done` / `done` - Filter by completion status
-- `path includes <pattern>` - Filter by file path
+- `path includes <pattern>` - Filter by file path  
 - `description includes <pattern>` - Filter by task description
 - `tag includes <pattern>` - Filter by tags
 - `priority is <level>` - Filter by priority level
 - `due before <date>` - Filter by due date
-- `group by status/path/priority/folder` - Group tasks by different criteria
+- `{{query.file.path}}` - Current file path placeholder
+
+### Grouping
+- `group by function task.status.typeGroupText` - **Recommended**: Group by status with custom status support
+- `group by path` - Group by file path
+- `group by priority` - Group by priority level
+- `group by folder` - Group by containing folder
+- `group by function task.file.property('project')` - Group by frontmatter property
+
+Use two `group by` statements for swim lanes (first = horizontal lanes, second = columns).
 
 ## Development
 
@@ -66,27 +103,7 @@ The plugin supports Tasks plugin query syntax for filtering:
 3. Start development mode: `npm run dev`
 4. Enable the plugin in Obsidian settings
 
-### Build Commands
-
-- `npm run dev` - Start development with file watching
-- `npm run build` - Build production version
-- `npm run lint` - Run ESLint and TypeScript checks
-
-## Architecture
-
-The plugin uses a code block processor approach:
-
-- **Code Block Processing**: Processes `tasks-kanban` markdown blocks
-- **Tasks Integration**: Interfaces with Tasks plugin via API
-- **Inline Rendering**: Renders kanban boards directly in reading mode
-- **File-based Updates**: Updates task status by modifying source files
-
-### Key Components
-
-- `SimpleKanbanRenderer` - Main kanban rendering logic
-- `TasksIntegration` - Interface layer with Tasks plugin
-- `SimpleQueryParser` - Query syntax parsing
-- `KanbanQueryProcessor` - Code block processing entry point
+Build commands: `npm run dev`, `npm run build`, `npm run lint`
 
 ## Manual Installation
 
