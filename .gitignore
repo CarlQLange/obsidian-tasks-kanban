@@ -21,5 +21,5 @@ data.json
 # Exclude macOS Finder (System Explorer) View States
 .DS_Store
 
-# Vendor directory for reference repos
-vendor/
+# Vendor directory for reference repos (now using submodules)
+# vendor/
