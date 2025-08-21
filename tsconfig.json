@@ -25,7 +25,10 @@
   },
   "include": [
     "src/**/*.ts",
-    "main.ts"
+    "main.ts",
+    "vendor/obsidian-tasks/src/Config/Settings.ts",
+    "vendor/obsidian-tasks/src/Config/StatusSettings.ts",
+    "vendor/obsidian-tasks/src/Statuses/StatusConfiguration.ts"
   ],
   "exclude": [
     "node_modules"

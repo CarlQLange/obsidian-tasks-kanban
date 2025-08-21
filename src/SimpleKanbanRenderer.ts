@@ -31,7 +31,7 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         this.tasksIntegration = tasksIntegration;
         this.settings = settings;
         this.source = source;
-        this.queryProcessor = new TasksQueryProcessor(app, tasksIntegration);
+        this.queryProcessor = new TasksQueryProcessor(app, tasksIntegration, settings);
         this.context = context;
     }
 

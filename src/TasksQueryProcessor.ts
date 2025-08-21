@@ -5,6 +5,9 @@ import { Task as TasksTask } from '../vendor/obsidian-tasks/src/Task/Task';
 import { TasksIntegration, Task } from './integration/TasksIntegration';
 import { makeQueryContext } from '../vendor/obsidian-tasks/src/Scripting/QueryContext';
 import { TasksFile } from '../vendor/obsidian-tasks/src/Scripting/TasksFile';
+import { getSettings } from '../vendor/obsidian-tasks/src/Config/Settings';
+import { StatusType } from '../vendor/obsidian-tasks/src/Statuses/StatusConfiguration';
+import { TasksKanbanSettings } from './TasksKanbanSettings';
 
 /**
  * Processes queries using the actual Tasks plugin Query class
@@ -13,10 +16,12 @@ import { TasksFile } from '../vendor/obsidian-tasks/src/Scripting/TasksFile';
 export class TasksQueryProcessor {
     private app: App;
     private tasksIntegration: TasksIntegration;
+    private settings: TasksKanbanSettings;
 
-    constructor(app: App, tasksIntegration: TasksIntegration) {
+    constructor(app: App, tasksIntegration: TasksIntegration, settings: TasksKanbanSettings) {
         this.app = app;
         this.tasksIntegration = tasksIntegration;
+        this.settings = settings;
     }
 
     /**
@@ -96,21 +101,209 @@ export class TasksQueryProcessor {
 
     /**
      * Convert Tasks plugin QueryResult with TaskGroups to our grouped format
+     * Returns groups in logical order based on status workflow
      */
     private convertQueryResultToGroupedTasks(queryResult: QueryResult): { [key: string]: Task[] } {
-        const groupedTasks: { [key: string]: Task[] } = {};
+        const tempGroups: { [key: string]: Task[] } = {};
         
+        // First, populate with actual tasks from query result
         for (const taskGroup of queryResult.taskGroups.groups) {
             // Use the most specific group name (last in the hierarchy)
-            const groupName = taskGroup.groups[taskGroup.groups.length - 1] || 'Ungrouped';
+            const rawGroupName = taskGroup.groups[taskGroup.groups.length - 1] || 'Ungrouped';
+            
+            // Convert internal status identifier to display name
+            const displayGroupName = this.convertStatusIdToDisplayName(rawGroupName);
             
             // Convert Tasks plugin Task objects to our Task interface
             const convertedTasks = taskGroup.tasks.map(tasksTask => this.convertTasksTaskToTask(tasksTask));
             
-            groupedTasks[groupName] = convertedTasks;
+            // Use the display name for the group
+            if (!tempGroups[displayGroupName]) {
+                tempGroups[displayGroupName] = [];
+            }
+            tempGroups[displayGroupName].push(...convertedTasks);
         }
         
-        return groupedTasks;
+        // Return ordered groups with empty columns for missing statuses
+        return this.createOrderedGroupsWithEmptyColumns(tempGroups);
+    }
+
+    /**
+     * Create ordered groups with empty columns for missing status types
+     */
+    private createOrderedGroupsWithEmptyColumns(populatedGroups: { [key: string]: Task[] }): { [key: string]: Task[] } {
+        const orderedGroups: { [key: string]: Task[] } = {};
+        
+        // Get ordered status names
+        const orderedStatusNames = this.getOrderedStatusNames();
+        
+        // Add groups in the correct order
+        for (const statusName of orderedStatusNames) {
+            orderedGroups[statusName] = populatedGroups[statusName] || [];
+        }
+        
+        // Add any groups that weren't in our ordered list
+        for (const [groupName, tasks] of Object.entries(populatedGroups)) {
+            if (!orderedGroups[groupName]) {
+                orderedGroups[groupName] = tasks;
+            }
+        }
+        
+        return orderedGroups;
+    }
+
+    /**
+     * Get status names in logical workflow order, respecting user settings
+     */
+    private getOrderedStatusNames(): string[] {
+        try {
+            const tasksSettings = getSettings();
+            const coreStatuses = tasksSettings.statusSettings.coreStatuses || [];
+            const customStatuses = tasksSettings.statusSettings.customStatuses || [];
+            const allStatuses = [...coreStatuses, ...customStatuses];
+            
+            // Create a map of status type to display name
+            const statusTypeToName = new Map<string, string>();
+            const displayNameToStatus = new Map<string, any>();
+            for (const status of allStatuses) {
+                const displayName = status.name || status.type || '';
+                statusTypeToName.set(status.type || '', displayName);
+                displayNameToStatus.set(displayName, status);
+                // Also map by type for direct lookup
+                displayNameToStatus.set(status.type || '', status);
+            }
+            
+            // Check if user has custom statusOrder settings
+            if (this.settings.statusOrder && this.settings.statusOrder.length > 0) {
+                const customOrderedNames: string[] = [];
+                
+                // First, add statuses in user-specified order
+                for (const userStatus of this.settings.statusOrder) {
+                    // Try to find matching status by type or display name
+                    const matchingStatus = displayNameToStatus.get(userStatus) || 
+                                         allStatuses.find(s => s.type === userStatus || s.name === userStatus);
+                    
+                    if (matchingStatus) {
+                        const displayName = matchingStatus.name || matchingStatus.type || '';
+                        if (!customOrderedNames.includes(displayName)) {
+                            customOrderedNames.push(displayName);
+                        }
+                    }
+                }
+                
+                // Add any remaining statuses not in user order
+                for (const status of allStatuses) {
+                    const displayName = status.name || status.type || '';
+                    if (!customOrderedNames.includes(displayName)) {
+                        customOrderedNames.push(displayName);
+                    }
+                }
+                
+                return customOrderedNames;
+            }
+            
+            // Fallback to default workflow order if no user settings
+            const workflowOrder = [
+                StatusType.TODO,
+                StatusType.IN_PROGRESS, 
+                StatusType.DONE,
+                StatusType.CANCELLED,
+                StatusType.NON_TASK,
+                StatusType.EMPTY
+            ];
+            
+            // Convert to display names in workflow order
+            const orderedNames: string[] = [];
+            for (const statusType of workflowOrder) {
+                const displayName = statusTypeToName.get(statusType);
+                if (displayName) {
+                    orderedNames.push(displayName);
+                }
+            }
+            
+            // Add any remaining statuses that weren't in the workflow order
+            for (const status of allStatuses) {
+                const name = status.name || status.type || '';
+                if (!orderedNames.includes(name)) {
+                    orderedNames.push(name);
+                }
+            }
+            
+            return orderedNames;
+        } catch (error) {
+            console.error('Error getting ordered status names:', error);
+            return ['Todo', 'In Progress', 'Done', 'Cancelled'];
+        }
+    }
+
+    /**
+     * Get all available status types from Tasks plugin
+     */
+    private getAllAvailableStatusTypes(): string[] {
+        try {
+            const settings = getSettings();
+            const coreStatuses = settings.statusSettings.coreStatuses || [];
+            const customStatuses = settings.statusSettings.customStatuses || [];
+            const allStatuses = [...coreStatuses, ...customStatuses];
+            
+            if (allStatuses.length > 0) {
+                return allStatuses.map((status: any) => status.name || status.symbol || 'UNKNOWN');
+            }
+        } catch (error) {
+            console.error('Error getting status types from Tasks plugin:', error);
+        }
+        
+        // Fallback to default status types
+        return ['Todo', 'In Progress', 'Done', 'Cancelled'];
+    }
+
+    /**
+     * Convert internal status identifier (like %%4%%CANCELLED) to display name
+     */
+    private convertStatusIdToDisplayName(statusId: string): string {
+        try {
+            // Handle internal status identifiers like %%4%%CANCELLED
+            if (statusId.includes('%%')) {
+                const settings = getSettings();
+                const coreStatuses = settings.statusSettings.coreStatuses || [];
+                const customStatuses = settings.statusSettings.customStatuses || [];
+                const allStatuses = [...coreStatuses, ...customStatuses];
+                
+                // Extract the status type from the identifier
+                const parts = statusId.split('%%');
+                const statusType = parts.length > 2 ? parts[2] : statusId;
+                
+                // Find matching status by type or symbol
+                const matchingStatus = allStatuses.find((s: any) => 
+                    s.type === statusType || s.symbol === statusType || s.name === statusType
+                );
+                
+                if (matchingStatus) {
+                    return matchingStatus.name || matchingStatus.type || statusType;
+                }
+                
+                return statusType;
+            }
+            
+            // Also check for regular status names that need to be converted to display names
+            const settings = getSettings();
+            const coreStatuses = settings.statusSettings.coreStatuses || [];
+            const customStatuses = settings.statusSettings.customStatuses || [];
+            const allStatuses = [...coreStatuses, ...customStatuses];
+            
+            const matchingStatus = allStatuses.find((s: any) => 
+                s.type === statusId || s.symbol === statusId || s.name === statusId
+            );
+            
+            if (matchingStatus) {
+                return matchingStatus.name || matchingStatus.type || statusId;
+            }
+        } catch (error) {
+            console.error('Error converting status ID to display name:', error);
+        }
+        
+        // Return as-is if not found or error occurred
+        return statusId;
     }
 
     /**
