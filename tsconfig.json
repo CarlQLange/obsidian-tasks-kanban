@@ -16,6 +16,8 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+    "typeRoots": ["node_modules/@types", "src/types"],
+    "noResolve": false,
     "lib": [
       "DOM",
       "ES5",
@@ -25,12 +27,10 @@
   },
   "include": [
     "src/**/*.ts",
-    "main.ts",
-    "vendor/obsidian-tasks/src/Config/Settings.ts",
-    "vendor/obsidian-tasks/src/Config/StatusSettings.ts",
-    "vendor/obsidian-tasks/src/Statuses/StatusConfiguration.ts"
+    "main.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "vendor/**/*"
   ]
 }
