@@ -205,17 +205,17 @@ export class SimpleKanbanRenderer extends MarkdownRenderChild {
         // Clear container
         this.containerEl.empty();
         
-        // Add subtle refresh button
-        const refreshButton = this.containerEl.createEl('button', {
+        // Create kanban board container
+        const boardContainer = this.containerEl.createDiv('kanban-board plugin-tasks-kanban-board');
+        
+        // Add subtle refresh button inside the board
+        const refreshButton = boardContainer.createEl('button', {
             cls: 'kanban-refresh-button',
             text: '↻'
         });
         refreshButton.addEventListener('click', () => {
             this.render();
         });
-        
-        // Create kanban board container
-        const boardContainer = this.containerEl.createDiv('kanban-board plugin-tasks-kanban-board');
         
         // Get column order based on grouping type
         const columnOrder = this.getColumnOrder(groupedTasks);
