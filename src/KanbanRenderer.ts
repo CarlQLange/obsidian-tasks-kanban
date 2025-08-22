@@ -132,7 +132,7 @@ export class KanbanRenderer extends MarkdownRenderChild {
 
 
 
-    private getColumnOrder(groupedTasks: { [key: string]: Task[] }, groupBy: string = 'status'): string[] {
+    private getColumnOrder(groupedTasks: { [key: string]: Task[] }, groupBy = 'status'): string[] {
         const availableColumns = Object.keys(groupedTasks);
         
         if (!groupBy || groupBy === 'status') {
@@ -662,16 +662,16 @@ export class KanbanRenderer extends MarkdownRenderChild {
         cleaned = cleaned.replace(/(?:^|\s)(#\w+)(?=\s|$)/g, ' ').trim();
         
         // Remove priority indicators - ⏫ 🔼 🔽 ⏬
-        cleaned = cleaned.replace(/[⏫🔼🔽⏬]/g, '').trim();
+        cleaned = cleaned.replace(/[⏫🔼🔽⏬]/gu, '').trim();
         
         // Remove date patterns like 📅 2023-12-31, 📆 2023-12-31, ⏰ 2023-12-31
-        cleaned = cleaned.replace(/[📅📆⏰⏳🗓]\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        cleaned = cleaned.replace(/[📅📆⏰⏳🗓]\s*\d{4}-\d{2}-\d{2}/gu, '').trim();
         
         // Remove start date patterns like 🛫 2023-12-31
-        cleaned = cleaned.replace(/🛫\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        cleaned = cleaned.replace(/🛫\s*\d{4}-\d{2}-\d{2}/gu, '').trim();
         
         // Remove done date patterns like ✅ 2023-12-31
-        cleaned = cleaned.replace(/✅\s*\d{4}-\d{2}-\d{2}/g, '').trim();
+        cleaned = cleaned.replace(/✅\s*\d{4}-\d{2}-\d{2}/gu, '').trim();
         
         // Remove multiple consecutive spaces
         cleaned = cleaned.replace(/\s{2,}/g, ' ').trim();

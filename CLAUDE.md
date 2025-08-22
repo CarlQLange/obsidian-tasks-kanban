@@ -24,30 +24,23 @@ The plugin uses a **code block processor approach** rather than ItemView/workspa
 
 #### 2. KanbanQueryProcessor (`src/KanbanQueryProcessor.ts`)
 - Handles processing of `tasks-kanban` code blocks
-- Creates and manages SimpleKanbanRenderer instances
+- Creates and manages KanbanRenderer instances
 - Bridges between Obsidian's markdown processor and kanban renderer
 
-#### 3. SimpleKanbanRenderer (`src/SimpleKanbanRenderer.ts`)
+#### 3. KanbanRenderer (`src/KanbanRenderer.ts`)
 - **Core kanban implementation** extending MarkdownRenderChild
 - Renders kanban boards with columns, cards, and drag-drop functionality
 - Handles task updates, auto-refresh, and user interactions
 - **Key Methods:**
   - `render()`: Main rendering logic
-  - `groupTasks()`: Groups tasks by status/path/priority/folder
   - `setupCardDragHandlers()`: HTML5 drag & drop implementation
   - `updateTaskStatus()`: Updates task status in files via TasksIntegration
 
-#### 4. SimpleQueryParser (`src/SimpleQueryParser.ts`)
-- Implements Tasks plugin query syntax parsing
-- **Supported Filters:**
-  - `not done` / `done`
-  - `path includes <pattern>`
-  - `description includes <pattern>`
-  - `tag includes <pattern>`
-  - `priority is <level>`
-  - `due before <date>`
-  - `status.name includes <pattern>`
-- **Grouping:** `group by status/path/priority/folder`
+#### 4. TasksQueryProcessor (`src/TasksQueryProcessor.ts`)
+- Processes queries using the actual Tasks plugin Query class
+- Provides access to their full query language including placeholders, complex filters, etc.
+- Supports single and dual grouping (swim lanes)
+- Converts Tasks plugin Task objects to our Task interface
 
 #### 5. TasksIntegration (`src/integration/TasksIntegration.ts`)
 - **Critical integration layer** with Tasks plugin
@@ -74,7 +67,7 @@ The drag & drop system is the most complex part:
 
 #### Query Processing Flow
 ```
-tasks-kanban code block → KanbanQueryProcessor → SimpleKanbanRenderer → SimpleQueryParser → TasksIntegration → Tasks Plugin Cache
+tasks-kanban code block → KanbanQueryProcessor → KanbanRenderer → TasksQueryProcessor → TasksIntegration → Tasks Plugin Cache
 ```
 
 #### Status Update Flow
@@ -141,8 +134,10 @@ group by priority
 src/
 ├── main.ts                          # Main plugin class
 ├── KanbanQueryProcessor.ts          # Code block processor
-├── SimpleKanbanRenderer.ts          # Kanban board renderer (CORE)
-├── SimpleQueryParser.ts             # Tasks query syntax parser
+├── KanbanRenderer.ts                # Kanban board renderer (CORE)
+├── TasksQueryProcessor.ts           # Tasks query processor using Tasks plugin Query class
+├── TasksKanbanSettings.ts           # Settings interface and defaults
+├── TasksKanbanSettingTab.ts         # Settings UI
 └── integration/
     └── TasksIntegration.ts         # Tasks plugin integration (CRITICAL)
 
