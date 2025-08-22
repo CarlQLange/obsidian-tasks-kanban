@@ -37,6 +37,10 @@ export interface TasksKanbanSettings {
     
     // Task count display threshold
     taskCountThreshold: number; // Only show task counts when above this number (0 = always show)
+    
+    // Collapsed state tracking
+    collapsedColumns: string[]; // Array of collapsed column IDs
+    collapsedLanes: string[]; // Array of collapsed swim lane IDs
 }
 
 /**
@@ -68,6 +72,8 @@ export const DEFAULT_SETTINGS: TasksKanbanSettings = {
     },
     statusOrder: ['TODO', 'IN_PROGRESS', 'DONE', 'CANCELLED'],
     taskCountThreshold: 5,
+    collapsedColumns: [],
+    collapsedLanes: [],
 };
 
 /**

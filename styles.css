@@ -265,6 +265,142 @@
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
+/* Collapsible column styling */
+.collapsible {
+    cursor: pointer;
+    user-select: none;
+}
+
+.collapsible:hover {
+    background-color: var(--background-modifier-hover-hover);
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 0.5rem;
+}
+
+.header-title {
+    flex: 1;
+}
+
+/* Collapsed column styles */
+.kanban-column.collapsed {
+    flex: 0 0 60px;
+    min-width: 60px;
+    transition: flex-basis 0.3s ease, min-width 0.3s ease;
+}
+
+.kanban-column.collapsed .kanban-column-content {
+    padding: 0.25rem;
+}
+
+.kanban-column.collapsed .task-dots-container {
+    width: 100%;
+    align-self: flex-start;
+}
+
+/* Task dots styling */
+.task-dots-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: 0.15rem;
+    padding: 0.25rem;
+    max-height: 100%;
+    overflow-y: auto;
+}
+
+.task-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--interactive-accent);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    flex-shrink: 0;
+}
+
+.task-dot:hover {
+    transform: scale(1.2);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Overflow dot with number */
+.task-dot.overflow-dot {
+    width: 16px;
+    height: 16px;
+    background: var(--text-muted);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: var(--font-weight-bold);
+    margin-top: 0.1rem;
+}
+
+
+/* Swim lane collapsed styles */
+.swimlane-row.collapsed {
+    height: 60px;
+    overflow: hidden;
+    transition: height 0.3s ease;
+}
+
+.swimlane-row.collapsed .swimlane-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.5rem;
+    min-height: 60px !important;
+    height: 60px;
+}
+
+.swimlane-column.collapsed {
+    width: 60px;
+    min-width: 60px;
+    transition: width 0.3s ease, min-width 0.3s ease;
+}
+
+.swimlane-column.collapsed .swimlane-column-content {
+    display: flex;
+    padding: 0.25rem;
+}
+
+.swimlane-column-header.collapsed,
+.swimlane-column.collapsed {
+    text-align: center;
+}
+
+/* Responsive collapsed behavior */
+@media (max-width: 768px) {
+    .kanban-column.collapsed {
+        flex: 0 0 50px;
+        min-width: 50px;
+    }
+    
+    .swimlane-column.collapsed {
+        width: 50px;
+        min-width: 50px;
+    }
+    
+    .task-dot {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .task-dot.overflow-dot {
+        width: 14px;
+        height: 14px;
+        font-size: 8px;
+    }
+}
+
 /* Status-based card styling for better visual feedback */
 .kanban-card.status-todo {
     border-left: 3px solid var(--text-muted);
@@ -294,6 +430,12 @@
     display: block;
     border: 2px dashed var(--background-modifier-border);
     border-radius: var(--radius-s);
+}
+
+/* Hide drop placeholder in collapsed columns */
+.kanban-column.collapsed .kanban-column-content:empty::after,
+.swimlane-column.collapsed .swimlane-column-content:empty::after {
+    display: none;
 }
 
 /* Loading state */

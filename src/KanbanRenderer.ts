@@ -186,6 +186,100 @@ export class KanbanRenderer extends MarkdownRenderChild {
     }
 
     /**
+     * Check if a column is collapsed
+     */
+    private isColumnCollapsed(columnId: string): boolean {
+        return this.settings.collapsedColumns.includes(columnId);
+    }
+
+    /**
+     * Check if a swim lane is collapsed
+     */
+    private isSwimLaneCollapsed(laneId: string): boolean {
+        return this.settings.collapsedLanes.includes(laneId);
+    }
+
+    /**
+     * Toggle column collapsed state
+     */
+    private toggleColumnCollapse(columnId: string): void {
+        const isCollapsed = this.isColumnCollapsed(columnId);
+        if (isCollapsed) {
+            this.settings.collapsedColumns = this.settings.collapsedColumns.filter(id => id !== columnId);
+        } else {
+            this.settings.collapsedColumns.push(columnId);
+        }
+        // Trigger re-render to update the display
+        this.render();
+    }
+
+    /**
+     * Toggle swim lane collapsed state
+     */
+    private toggleSwimLaneCollapse(laneId: string): void {
+        const isCollapsed = this.isSwimLaneCollapsed(laneId);
+        if (isCollapsed) {
+            this.settings.collapsedLanes = this.settings.collapsedLanes.filter(id => id !== laneId);
+        } else {
+            this.settings.collapsedLanes.push(laneId);
+        }
+        // Trigger re-render to update the display
+        this.render();
+    }
+
+    /**
+     * Render tasks as dots in collapsed columns
+     */
+    private renderTaskDots(content: HTMLElement, tasks: Task[], columnId?: string): void {
+        if (tasks.length === 0) return;
+
+        const dotsContainer = content.createDiv('task-dots-container');
+        
+        // Create individual dots for each task (up to a reasonable limit)
+        const maxDots = 10; // Show max 10 individual dots
+        const dotsToShow = Math.min(tasks.length, maxDots);
+        
+        for (let i = 0; i < dotsToShow; i++) {
+            const task = tasks[i];
+            const dot = dotsContainer.createDiv('task-dot');
+            
+            // Add tooltip with task title
+            dot.title = this.cleanTaskDescription(task.description);
+
+            // Add click handler to expand column or lane on dot click
+            if (columnId) {
+                dot.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (columnId.startsWith('lane:')) {
+                        this.toggleSwimLaneCollapse(columnId.substring(5));
+                    } else {
+                        this.toggleColumnCollapse(columnId);
+                    }
+                });
+            }
+        }
+        
+        // If there are more tasks than dots shown, add an overflow indicator
+        if (tasks.length > maxDots) {
+            const overflowDot = dotsContainer.createDiv('task-dot overflow-dot');
+            overflowDot.textContent = `+${tasks.length - maxDots}`;
+            overflowDot.addClass('with-count');
+            overflowDot.title = `${tasks.length - maxDots} more task${tasks.length - maxDots === 1 ? '' : 's'}`;
+            
+            if (columnId) {
+                overflowDot.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (columnId.startsWith('lane:')) {
+                        this.toggleSwimLaneCollapse(columnId.substring(5));
+                    } else {
+                        this.toggleColumnCollapse(columnId);
+                    }
+                });
+            }
+        }
+    }
+
+    /**
      * Renders the complete kanban board with columns and task cards
      */
     private renderKanbanBoard(groupedTasks: { [status: string]: Task[] }) {
@@ -275,10 +369,22 @@ export class KanbanRenderer extends MarkdownRenderChild {
         const swimLaneHeaderCell = headerRow.createDiv('swimlane-name-header');
         swimLaneHeaderCell.textContent = 'Project';
         
-        // Create header for each column
+        // Create header for each column with collapse functionality
         for (const columnName of columnOrder) {
-            const headerCell = headerRow.createDiv('swimlane-column-header');
-            headerCell.textContent = this.getColumnTitle(columnName);
+            const isCollapsed = this.isColumnCollapsed(columnName);
+            const headerCell = headerRow.createDiv(`swimlane-column-header collapsible ${isCollapsed ? 'collapsed' : ''}`);
+            
+            // Header content
+            const headerContent = headerCell.createDiv('header-content');
+            const title = headerContent.createSpan('header-title');
+            title.textContent = this.getColumnTitle(columnName);
+            
+            // Add click handler
+            headerCell.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleColumnCollapse(columnName);
+            });
         }
     }
     
@@ -286,19 +392,32 @@ export class KanbanRenderer extends MarkdownRenderChild {
      * Render a single swim lane row
      */
     private renderSwimLane(boardContainer: HTMLElement, swimLaneName: string, columns: { [column: string]: Task[] }, columnOrder: string[]) {
-        const swimLaneRow = boardContainer.createDiv('swimlane-row');
+        const isLaneCollapsed = this.isSwimLaneCollapsed(swimLaneName);
+        const swimLaneRow = boardContainer.createDiv(`swimlane-row ${isLaneCollapsed ? 'collapsed' : ''}`);
         
-        // Create swim lane name cell
-        const nameCell = swimLaneRow.createDiv('swimlane-name');
-        nameCell.textContent = swimLaneName;
+        // Create swim lane name cell with collapse functionality
+        const nameCell = swimLaneRow.createDiv('swimlane-name collapsible');
+        
+        // Name content container
+        const nameContent = nameCell.createDiv('header-content');
+        const nameTitle = nameContent.createSpan('header-title');
+        nameTitle.textContent = swimLaneName;
+        
+        // Add click handler for swim lane collapse
+        nameCell.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleSwimLaneCollapse(swimLaneName);
+        });
         
         // Create column cells for this swim lane
         for (const columnName of columnOrder) {
             const tasks = columns[columnName] || [];
-            const columnCell = swimLaneRow.createDiv('swimlane-column');
+            const isColumnCollapsed = this.isColumnCollapsed(columnName);
+            const columnCell = swimLaneRow.createDiv(`swimlane-column ${isColumnCollapsed ? 'collapsed' : ''}`);
             
-            // Add task count to column only if above threshold
-            if (tasks.length > this.settings.taskCountThreshold) {
+            // Add task count to column only if above threshold and neither column nor lane is collapsed
+            if (!isColumnCollapsed && !isLaneCollapsed && tasks.length > this.settings.taskCountThreshold) {
                 const countDiv = columnCell.createDiv('swimlane-task-count');
                 countDiv.textContent = `${tasks.length}`;
             }
@@ -309,9 +428,17 @@ export class KanbanRenderer extends MarkdownRenderChild {
             // Set up drop zone for this swim lane column
             this.setupSwimLaneDropZone(contentDiv, swimLaneName, columnName);
             
-            // Render tasks in this column
-            for (const task of tasks) {
-                this.renderTaskCard(contentDiv, task);
+            if (isLaneCollapsed) {
+                // If swim lane is collapsed, show individual dots like columns
+                this.renderTaskDots(contentDiv, tasks, `lane:${swimLaneName}`);
+            } else if (isColumnCollapsed) {
+                // If column is collapsed but swim lane is expanded, render dots
+                this.renderTaskDots(contentDiv, tasks, columnName);
+            } else {
+                // Both expanded - render full task cards
+                for (const task of tasks) {
+                    this.renderTaskCard(contentDiv, task);
+                }
             }
         }
     }
@@ -383,28 +510,46 @@ export class KanbanRenderer extends MarkdownRenderChild {
     }
 
     private renderColumn(boardContainer: HTMLElement, status: string, tasks: Task[]) {
+        const isCollapsed = this.isColumnCollapsed(status);
+        
         // Create column container
-        const column = boardContainer.createDiv('kanban-column plugin-tasks-kanban-column');
+        const column = boardContainer.createDiv(`kanban-column plugin-tasks-kanban-column ${isCollapsed ? 'collapsed' : ''}`);
         
-        // Create column header
-        const header = column.createDiv('kanban-column-header plugin-tasks-kanban-column-header');
-        header.textContent = this.getColumnTitle(status);
+        // Create column header with collapsible styling
+        const header = column.createDiv('kanban-column-header plugin-tasks-kanban-column-header collapsible');
         
-        // Add task count to header only if above threshold
-        if (tasks.length > this.settings.taskCountThreshold) {
-            const countSpan = header.createSpan('kanban-task-count');
+        // Header content container
+        const headerContent = header.createDiv('header-content');
+        const title = headerContent.createSpan('header-title');
+        title.textContent = this.getColumnTitle(status);
+        
+        // Add task count to header only if above threshold and not collapsed
+        if (!isCollapsed && tasks.length > this.settings.taskCountThreshold) {
+            const countSpan = headerContent.createSpan('kanban-task-count');
             countSpan.textContent = ` (${tasks.length})`;
         }
+        
+        // Add click handler to toggle collapse
+        header.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleColumnCollapse(status);
+        });
         
         // Create column content (scrollable area)
         const content = column.createDiv('kanban-column-content plugin-tasks-kanban-column-content');
         
-        // Set up drop zone
+        // Set up drop zone (works for both collapsed and expanded)
         this.setupDropZone(content, status);
         
-        // Render tasks
-        for (const task of tasks) {
-            this.renderTaskCard(content, task);
+        if (isCollapsed) {
+            // Render tasks as dots when collapsed
+            this.renderTaskDots(content, tasks, status);
+        } else {
+            // Render full task cards when expanded
+            for (const task of tasks) {
+                this.renderTaskCard(content, task);
+            }
         }
     }
 
