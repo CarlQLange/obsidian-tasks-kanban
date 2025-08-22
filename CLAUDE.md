@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Obsidian Tasks Kanban Plugin
 
 ## Project Overview
@@ -93,40 +97,42 @@ Now that we have a solid POC, **all new work should be done on feature branches*
 
 ### Development Commands
 
-Based on `package.json:6-12`:
-
 - **Development**: `npm run dev` (watch mode with esbuild)
-- **Build**: `npm run build` (TypeScript check + production build)
-- **Lint**: `npm run lint` (ESLint + TypeScript + Svelte check)
-- **Test**: `npm test` / `npm run test:dev`
+- **Build**: `npm run build` (production build)
+- **Build with checks**: `npm run build-with-check` (TypeScript check + production build)  
+- **Lint**: `npm run lint` (ESLint + TypeScript check, auto-fixes issues)
+- **Version bump**: `npm run version` (updates manifest.json and versions.json)
 
-## Usage Examples
+**Note**: There are no test scripts - testing is done manually by loading the plugin in Obsidian.
 
-### Basic Kanban
+## Usage Examples & Query Syntax
+
+### Basic Kanban (Recommended)
 ```markdown
 \```tasks-kanban
-not done
-group by status
+not done  
+group by function task.status.typeGroupText
 \```
 ```
 
-### Filtered Project Kanban  
+**Important**: Use `group by function task.status.typeGroupText` for proper custom status support, not `group by status`.
+
+### Swim Lanes (Dual Grouping)
 ```markdown
 \```tasks-kanban
-path includes Personal
-not done
-group by status
+path includes {{query.file.path}}
+group by function task.file.property('project')
+group by function task.status.typeGroupText  
 \```
 ```
 
-### Priority-based Kanban
-```markdown
-\```tasks-kanban
-not done
-priority is high
-group by priority
-\```
-```
+First `group by` creates horizontal swim lanes, second creates columns within each lane.
+
+### Supported Query Features
+- **Filters**: `not done`, `path includes <pattern>`, `description includes <pattern>`, `tag includes <pattern>`, `priority is <level>`, `due before <date>`
+- **Placeholders**: `{{query.file.path}}` for current file path
+- **Grouping**: `group by function task.status.typeGroupText` (recommended), `group by path`, `group by priority`, `group by folder`
+- **Custom Properties**: `group by function task.file.property('project')` for frontmatter properties
 
 ## File Structure
 
@@ -152,9 +158,10 @@ All styling is in `styles.css` using Obsidian CSS variables:
 - **Board**: `.kanban-board` - flexbox container
 - **Columns**: `.kanban-column` - individual status/group columns  
 - **Cards**: `.kanban-card` - draggable task cards
-- **Responsive**: Mobile-friendly column stacking
+- **Collapsible**: Click column/lane headers to collapse with dot representation
+- **Responsive**: Mobile-friendly column stacking  
 - **Theming**: Dark/light theme support
-- **Animations**: Hover effects, drag states, fade-in
+- **Animations**: Smooth transitions for collapse/expand, hover effects, drag states
 
 ## Dependencies & Requirements
 
@@ -169,20 +176,19 @@ All styling is in `styles.css` using Obsidian CSS variables:
 3. `npm run dev` (watch mode)
 4. Enable "Tasks Kanban" in Community Plugins settings
 
-## Known Issues & Solutions
+## Key Features
 
-### Drag & Drop Issues (RESOLVED)
-- **Problem**: Tasks not updating when dragged
-- **Root Cause**: Line number mismatches between plugin and actual file content
-- **Solution**: Search by task description instead of line numbers (`TasksIntegration.ts:183-197`)
+### Collapsible Columns & Lanes
+- **Click headers** to collapse columns or swim lanes
+- **Individual dots**: Shows one dot per task instead of numbers
+- **Grid layout**: Dots wrap naturally from top-left (e.g., `○○○○` then `○○` for 6 tasks)
+- **Overflow handling**: Shows `+X` for more than 10 tasks
+- **Persistent state**: Collapse settings persist across refreshes
+- **Works in both**: Regular kanban columns and swim lane views
 
-### Query Parsing (RESOLVED)  
-- **Problem**: Task filters not working
-- **Solution**: Implemented comprehensive SimpleQueryParser supporting Tasks syntax
-
-### CSS Loading (RESOLVED)
-- **Problem**: Styles not loading
-- **Solution**: Use `styles.css` instead of imported CSS (Obsidian standard)
+### Loading State
+- **First render**: Shows 800ms loading spinner to prevent empty task lists
+- **Subsequent renders**: Immediate updates without spinner
 
 ## Architecture Evolution
 
@@ -205,13 +211,20 @@ All styling is in `styles.css` using Obsidian CSS variables:
 4. **Drag Identification**: Unique task IDs must include path + line + description for reliability
 5. **CSS Variables**: Using Obsidian's CSS custom properties ensures theme compatibility
 
-## Testing Strategy
+## Testing & Development Notes
 
-- Manual testing with various task configurations
-- Test drag & drop across different groupings (status works, others show appropriate messages)
-- Verify query syntax compatibility with Tasks plugin
-- Test auto-refresh on file modifications
-- Mobile/responsive testing
+### Manual Testing Required
+- **No automated tests** - plugin testing requires live Obsidian environment
+- **Test drag & drop** with various task configurations and status types
+- **Verify query compatibility** with Tasks plugin syntax
+- **Check auto-refresh** when tasks are modified in files
+- **Test collapsible features** in both regular and swim lane views
+- **Mobile/responsive testing** on smaller screens
+
+### Vendor Dependencies
+- **Runtime dependencies** in `package.json` are needed by the `vendor/obsidian-tasks` submodule
+- **Don't remove dependencies** even if they appear unused in main source code
+- **Vendor submodule** provides access to Tasks plugin internals without full source integration
 
 ## Success Metrics
 
