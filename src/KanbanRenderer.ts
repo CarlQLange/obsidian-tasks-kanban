@@ -18,6 +18,7 @@ export class KanbanRenderer extends MarkdownRenderChild {
     private context: MarkdownPostProcessorContext;
     private refreshTimeout: NodeJS.Timeout | null = null;
     private isUpdating = false;
+    private isFirstLoad = true;
 
     constructor(
         app: App,
@@ -38,8 +39,18 @@ export class KanbanRenderer extends MarkdownRenderChild {
 
     async onload() {
         try {
-            await this.render();
-            this.setupAutoRefresh();
+            if (this.isFirstLoad) {
+                // Show loading spinner for 800ms on first load to avoid empty task list
+                this.showLoadingSpinner();
+                setTimeout(async () => {
+                    this.isFirstLoad = false;
+                    await this.render();
+                    this.setupAutoRefresh();
+                }, 800);
+            } else {
+                await this.render();
+                this.setupAutoRefresh();
+            }
         } catch (error) {
             console.error('Kanban render error:', error);
             this.containerEl.createDiv().innerHTML = `<pre>Error rendering kanban: ${error}</pre>`;
@@ -225,6 +236,17 @@ export class KanbanRenderer extends MarkdownRenderChild {
         }
         // Trigger re-render to update the display
         this.render();
+    }
+
+    /**
+     * Show loading spinner during initial load
+     */
+    private showLoadingSpinner(): void {
+        this.containerEl.empty();
+        const loadingContainer = this.containerEl.createDiv('kanban-loading');
+        const spinner = loadingContainer.createDiv('kanban-spinner');
+        const message = loadingContainer.createDiv('kanban-loading-message');
+        message.textContent = 'Loading tasks...';
     }
 
     /**
