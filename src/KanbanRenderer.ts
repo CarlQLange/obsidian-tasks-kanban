@@ -189,7 +189,7 @@ export class KanbanRenderer extends MarkdownRenderChild {
      * Renders the complete kanban board with columns and task cards
      */
     private renderKanbanBoard(groupedTasks: { [status: string]: Task[] }) {
-        // Clear container
+        // Clear container 
         this.containerEl.empty();
         
         // Create kanban board container
@@ -225,7 +225,7 @@ export class KanbanRenderer extends MarkdownRenderChild {
      * Render kanban board with swim lanes for dual grouping
      */
     private renderSwimLaneBoard(swimLanes: { [swimLane: string]: { [column: string]: Task[] } }) {
-        // Clear container
+        // Clear container 
         this.containerEl.empty();
         
         // Create swim lane board container
@@ -396,7 +396,7 @@ export class KanbanRenderer extends MarkdownRenderChild {
             countSpan.textContent = ` (${tasks.length})`;
         }
         
-        // Create column content
+        // Create column content (scrollable area)
         const content = column.createDiv('kanban-column-content plugin-tasks-kanban-column-content');
         
         // Set up drop zone
@@ -411,10 +411,10 @@ export class KanbanRenderer extends MarkdownRenderChild {
     private renderTaskCard(columnContent: HTMLElement, task: Task) {
         // Create card container
         const card = columnContent.createDiv('kanban-card plugin-tasks-kanban-card');
+        
         // Use a more reliable task ID for DOM selection
         const reliableTaskId = `${task.taskLocation.path}:${task.taskLocation.lineNumber}:${task.description.slice(0, 50)}`;
         card.dataset.taskId = reliableTaskId;
-        
         
         // Make card draggable
         card.draggable = true;

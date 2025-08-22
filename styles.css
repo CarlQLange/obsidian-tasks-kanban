@@ -260,21 +260,9 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
-/* Animation for card movements */
+/* Card transitions for smooth drag/drop */
 .kanban-card {
-    animation: fadeIn 0.3s ease-in-out;
     transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 /* Status-based card styling for better visual feedback */
